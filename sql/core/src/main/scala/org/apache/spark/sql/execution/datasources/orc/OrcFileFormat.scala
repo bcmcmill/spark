@@ -144,6 +144,7 @@ class OrcFileFormat
     val sqlConf = sparkSession.sessionState.conf
     val enableVectorizedReader = supportBatch(sparkSession, resultSchema)
     val capacity = sqlConf.orcVectorizedReaderBatchSize
+    val metaCacheEnabled = sqlConf.fileMetaCacheEnabled(shortName())
 
     OrcConf.IS_SCHEMA_EVOLUTION_CASE_SENSITIVE.setBoolean(hadoopConf, sqlConf.caseSensitiveAnalysis)
 
@@ -159,7 +160,12 @@ class OrcFileFormat
       val filePath = new Path(new URI(file.filePath))
 
       val fs = filePath.getFileSystem(conf)
-      val readerOptions = OrcFile.readerOptions(conf).filesystem(fs)
+      val readerOptions = if (metaCacheEnabled) {
+        val tail = OrcFileMeta.readTailFromCache(filePath, conf)
+        OrcFile.readerOptions(conf).filesystem(fs).orcTail(tail)
+      } else {
+        OrcFile.readerOptions(conf).filesystem(fs)
+      }
       val resultedColPruneInfo =
         Utils.tryWithResource(OrcFile.createReader(filePath, readerOptions)) { reader =>
           OrcUtils.requestedColumnIds(
@@ -201,6 +207,10 @@ class OrcFileFormat
           val requestedDataColIds = requestedColIds ++ Array.fill(partitionSchema.length)(-1)
           val requestedPartitionColIds =
             Array.fill(requiredSchema.length)(-1) ++ Range(0, partitionSchema.length)
+          if (metaCacheEnabled) {
+            val tail = OrcFileMeta.readTailFromCache(filePath, conf)
+            batchReader.setCachedTail(tail)
+          }
           batchReader.initialize(fileSplit, taskAttemptContext)
           batchReader.initBatch(
             TypeDescription.fromString(resultSchemaString),

@@ -63,6 +63,7 @@ case class OrcPartitionReaderFactory(
   private val capacity = sqlConf.orcVectorizedReaderBatchSize
   private val orcFilterPushDown = sqlConf.orcFilterPushDown
   private val ignoreCorruptFiles = sqlConf.ignoreCorruptFiles
+  private val metaCacheEnabled = sqlConf.fileMetaCacheEnabled("orc")
 
   override def supportColumnarReads(partition: InputPartition): Boolean = {
     sqlConf.orcVectorizedReaderEnabled && sqlConf.wholeStageEnabled &&
@@ -89,6 +90,13 @@ case class OrcPartitionReaderFactory(
       return buildReaderWithAggregates(filePath, conf)
     }
 
+    val fs = filePath.getFileSystem(conf)
+    val readerOptions = if (metaCacheEnabled) {
+      val tail = OrcFileMeta.readTailFromCache(filePath, conf)
+      OrcFile.readerOptions(conf).filesystem(fs).orcTail(tail)
+    } else {
+      OrcFile.readerOptions(conf).filesystem(fs)
+    }
     val resultedColPruneInfo =
       Utils.tryWithResource(createORCReader(filePath, conf)) { reader =>
         OrcUtils.requestedColumnIds(
@@ -133,6 +141,13 @@ case class OrcPartitionReaderFactory(
       return buildColumnarReaderWithAggregates(filePath, conf)
     }
 
+    val fs = filePath.getFileSystem(conf)
+    val readerOptions = if (metaCacheEnabled) {
+      val tail = OrcFileMeta.readTailFromCache(filePath, conf)
+      OrcFile.readerOptions(conf).filesystem(fs).orcTail(tail)
+    } else {
+      OrcFile.readerOptions(conf).filesystem(fs)
+    }
     val resultedColPruneInfo =
       Utils.tryWithResource(createORCReader(filePath, conf)) { reader =>
         OrcUtils.requestedColumnIds(
@@ -155,6 +170,10 @@ case class OrcPartitionReaderFactory(
       val taskAttemptContext = new TaskAttemptContextImpl(taskConf, attemptId)
 
       val batchReader = new OrcColumnarBatchReader(capacity)
+      if (metaCacheEnabled) {
+        val tail = OrcFileMeta.readTailFromCache(filePath, conf)
+        batchReader.setCachedTail(tail)
+      }
       batchReader.initialize(fileSplit, taskAttemptContext)
       val requestedPartitionColIds =
         Array.fill(readDataSchema.length)(-1) ++ Range(0, partitionSchema.length)

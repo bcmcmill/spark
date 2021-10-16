@@ -966,6 +966,36 @@ object SQLConf {
     .booleanConf
     .createWithDefault(false)
 
+  val FILE_META_CACHE_ENABLED_SOURCE_LIST = buildConf("spark.sql.fileMetaCache.enabledSourceList")
+    .doc("A comma-separated list of data source short names for which data source enabled file " +
+      "meta cache, now the file meta cache only support ORC, it is recommended to enabled this " +
+      "config when multiple queries are performed on the same dataset, default is false." +
+      "Warning: if the fileMetaCache is enabled, the existing data files should not be " +
+      "replaced with the same file name, otherwise there will be a risk of job failure or wrong " +
+      "data reading before the cache entry expires.")
+    .version("3.3.0")
+    .stringConf
+    .checkValue(value => {
+      val valueList = value.toLowerCase(Locale.ROOT).split(",").map(_.trim)
+      value.trim.isEmpty || valueList.length == 1 && valueList.contains("orc")
+    }, s"spark.sql.fileMetaCache.enabledSourceList only support orc now")
+    .createWithDefault("")
+
+  val FILE_META_CACHE_TTL_SINCE_LAST_ACCESS_SEC =
+    buildConf("spark.sql.fileMetaCache.ttlSinceLastAccessSec")
+      .version("3.3.0")
+      .doc("Time-to-live for file metadata cache entry after last access, the unit is seconds.")
+      .timeConf(TimeUnit.SECONDS)
+      .createWithDefault(600L)
+
+  val FILE_META_CACHE_MAXIMUM_SIZE =
+    buildConf("spark.sql.fileMetaCache.maximumSize")
+      .version("3.3.0")
+      .doc("Maximum number of file meta entries the file meta cache contains.")
+      .intConf
+      .checkValue(_ > 0, "The value of fileMetaCache maximumSize must be positive")
+      .createWithDefault(1000)
+
   val HIVE_VERIFY_PARTITION_PATH = buildConf("spark.sql.hive.verifyPartitionPath")
     .doc("When true, check all the partition paths under the table\'s root directory " +
          "when reading data stored in HDFS. This configuration will be deprecated in the future " +
@@ -3645,6 +3675,12 @@ class SQLConf extends Serializable with Logging {
   def parquetVectorizedReaderEnabled: Boolean = getConf(PARQUET_VECTORIZED_READER_ENABLED)
 
   def parquetVectorizedReaderBatchSize: Int = getConf(PARQUET_VECTORIZED_READER_BATCH_SIZE)
+
+  def fileMetaCacheEnabled(ds: String): Boolean = {
+   val enabledList = getConf(FILE_META_CACHE_ENABLED_SOURCE_LIST).toLowerCase(Locale.ROOT)
+      .split(",").map(_.trim)
+    enabledList.contains(ds.toLowerCase(Locale.ROOT))
+  }
 
   def columnBatchSize: Int = getConf(COLUMN_BATCH_SIZE)
 
