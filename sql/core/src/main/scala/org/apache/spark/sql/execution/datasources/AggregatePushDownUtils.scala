@@ -89,11 +89,6 @@ object AggregatePushDownUtils {
       return None
     }
 
-    aggregation.groupByColumns.foreach { col =>
-      if (col.fieldNames.length != 1) return None
-      finalSchema = finalSchema.add(getStructFieldForCol(col))
-    }
-
     aggregation.aggregateExpressions.foreach {
       case max: Max =>
         if (!processMinOrMax(max)) return None
@@ -126,9 +121,9 @@ object AggregatePushDownUtils {
    * This is used for columnar reader.
    */
   def convertAggregatesRowToBatch(
-                                   aggregatesAsRow: InternalRow,
-                                   aggregatesSchema: StructType,
-                                   offHeap: Boolean): ColumnarBatch = {
+      aggregatesAsRow: InternalRow,
+      aggregatesSchema: StructType,
+      offHeap: Boolean): ColumnarBatch = {
     val converter = new RowToColumnConverter(aggregatesSchema)
     val columnVectors = if (offHeap) {
       OffHeapColumnVector.allocateColumns(1, aggregatesSchema)
