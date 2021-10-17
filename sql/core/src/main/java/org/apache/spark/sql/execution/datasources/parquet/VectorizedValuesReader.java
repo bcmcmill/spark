@@ -26,41 +26,67 @@ import org.apache.parquet.io.api.Binary;
  * TODO: merge this into parquet-mr.
  */
 public interface VectorizedValuesReader {
-  boolean readBoolean();
-  byte readByte();
-  short readShort();
-  int readInteger();
-  long readLong();
-  float readFloat();
-  double readDouble();
-  Binary readBinary(int len);
+    boolean readBoolean();
 
-  /*
-   * Reads `total` values into `c` start at `c[rowId]`
-   */
-  void readBooleans(int total, WritableColumnVector c, int rowId);
-  void readBytes(int total, WritableColumnVector c, int rowId);
-  void readShorts(int total, WritableColumnVector c, int rowId);
-  void readIntegers(int total, WritableColumnVector c, int rowId);
-  void readIntegersWithRebase(int total, WritableColumnVector c, int rowId, boolean failIfRebase);
-  void readUnsignedIntegers(int total, WritableColumnVector c, int rowId);
-  void readUnsignedLongs(int total, WritableColumnVector c, int rowId);
-  void readLongs(int total, WritableColumnVector c, int rowId);
-  void readLongsWithRebase(int total, WritableColumnVector c, int rowId, boolean failIfRebase);
-  void readFloats(int total, WritableColumnVector c, int rowId);
-  void readDoubles(int total, WritableColumnVector c, int rowId);
-  void readBinary(int total, WritableColumnVector c, int rowId);
+    byte readByte();
 
-   /*
-    * Skips `total` values
-    */
-   void skipBooleans(int total);
-   void skipBytes(int total);
-   void skipShorts(int total);
-   void skipIntegers(int total);
-   void skipLongs(int total);
-   void skipFloats(int total);
-   void skipDoubles(int total);
-   void skipBinary(int total);
-   void skipFixedLenByteArray(int total, int len);
+    short readShort();
+
+    int readInteger();
+
+    long readLong();
+
+    float readFloat();
+
+    double readDouble();
+
+    Binary readBinary(int len);
+
+    /*
+     * Reads `total` values into `c` start at `c[rowId]`
+     */
+    void readBooleans(int total, WritableColumnVector c, int rowId);
+
+    void readBytes(int total, WritableColumnVector c, int rowId);
+
+    void readShorts(int total, WritableColumnVector c, int rowId);
+
+    void readIntegers(int total, WritableColumnVector c, int rowId);
+
+    void readIntegersWithRebase(int total, WritableColumnVector c, int rowId, boolean failIfRebase);
+
+    void readUnsignedIntegers(int total, WritableColumnVector c, int rowId);
+
+    void readUnsignedLongs(int total, WritableColumnVector c, int rowId);
+
+    void readLongs(int total, WritableColumnVector c, int rowId);
+
+    void readLongsWithRebase(int total, WritableColumnVector c, int rowId, boolean failIfRebase);
+
+    void readFloats(int total, WritableColumnVector c, int rowId);
+
+    void readDoubles(int total, WritableColumnVector c, int rowId);
+
+    void readBinary(int total, WritableColumnVector c, int rowId);
+
+    /*
+     * Skips `total` values
+     */
+    void skipBooleans(int total);
+
+    void skipBytes(int total);
+
+    void skipShorts(int total);
+
+    void skipIntegers(int total);
+
+    void skipLongs(int total);
+
+    void skipFloats(int total);
+
+    void skipDoubles(int total);
+
+    void skipBinary(int total);
+
+    void skipFixedLenByteArray(int total, int len);
 }

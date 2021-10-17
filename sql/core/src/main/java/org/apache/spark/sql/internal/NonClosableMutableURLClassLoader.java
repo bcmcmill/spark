@@ -26,14 +26,15 @@ import org.apache.spark.util.MutableURLClassLoader;
  */
 public class NonClosableMutableURLClassLoader extends MutableURLClassLoader {
 
-  static {
-    ClassLoader.registerAsParallelCapable();
-  }
+    static {
+        ClassLoader.registerAsParallelCapable();
+    }
 
-  public NonClosableMutableURLClassLoader(ClassLoader parent) {
-    super(new URL[]{}, parent);
-  }
+    public NonClosableMutableURLClassLoader(ClassLoader parent) {
+        super(new URL[]{}, parent);
+    }
 
-  @Override
-  public void close() {}
+    @Override
+    public void close() {
+    }
 }

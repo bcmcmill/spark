@@ -35,127 +35,127 @@ import org.apache.spark.unsafe.types.UTF8String;
  * A column vector implementation for Spark's AtomicType.
  */
 public class OrcAtomicColumnVector extends OrcColumnVector {
-  private final boolean isTimestamp;
-  private final boolean isDate;
+    private final boolean isTimestamp;
+    private final boolean isDate;
 
-  // Column vector for each type. Only 1 is populated for any type.
-  private LongColumnVector longData;
-  private DoubleColumnVector doubleData;
-  private BytesColumnVector bytesData;
-  private DecimalColumnVector decimalData;
-  private TimestampColumnVector timestampData;
+    // Column vector for each type. Only 1 is populated for any type.
+    private LongColumnVector longData;
+    private DoubleColumnVector doubleData;
+    private BytesColumnVector bytesData;
+    private DecimalColumnVector decimalData;
+    private TimestampColumnVector timestampData;
 
-  OrcAtomicColumnVector(DataType type, ColumnVector vector) {
-    super(type, vector);
+    OrcAtomicColumnVector(DataType type, ColumnVector vector) {
+        super(type, vector);
 
-    if (type instanceof TimestampType) {
-      isTimestamp = true;
-    } else {
-      isTimestamp = false;
+        if (type instanceof TimestampType) {
+            isTimestamp = true;
+        } else {
+            isTimestamp = false;
+        }
+
+        if (type instanceof DateType) {
+            isDate = true;
+        } else {
+            isDate = false;
+        }
+
+        if (vector instanceof LongColumnVector) {
+            longData = (LongColumnVector) vector;
+        } else if (vector instanceof DoubleColumnVector) {
+            doubleData = (DoubleColumnVector) vector;
+        } else if (vector instanceof BytesColumnVector) {
+            bytesData = (BytesColumnVector) vector;
+        } else if (vector instanceof DecimalColumnVector) {
+            decimalData = (DecimalColumnVector) vector;
+        } else if (vector instanceof TimestampColumnVector) {
+            timestampData = (TimestampColumnVector) vector;
+        } else {
+            throw new UnsupportedOperationException();
+        }
     }
 
-    if (type instanceof DateType) {
-      isDate = true;
-    } else {
-      isDate = false;
+    @Override
+    public boolean getBoolean(int rowId) {
+        return longData.vector[getRowIndex(rowId)] == 1;
     }
 
-    if (vector instanceof LongColumnVector) {
-      longData = (LongColumnVector) vector;
-    } else if (vector instanceof DoubleColumnVector) {
-      doubleData = (DoubleColumnVector) vector;
-    } else if (vector instanceof BytesColumnVector) {
-      bytesData = (BytesColumnVector) vector;
-    } else if (vector instanceof DecimalColumnVector) {
-      decimalData = (DecimalColumnVector) vector;
-    } else if (vector instanceof TimestampColumnVector) {
-      timestampData = (TimestampColumnVector) vector;
-    } else {
-      throw new UnsupportedOperationException();
+    @Override
+    public byte getByte(int rowId) {
+        return (byte) longData.vector[getRowIndex(rowId)];
     }
-  }
 
-  @Override
-  public boolean getBoolean(int rowId) {
-    return longData.vector[getRowIndex(rowId)] == 1;
-  }
-
-  @Override
-  public byte getByte(int rowId) {
-    return (byte) longData.vector[getRowIndex(rowId)];
-  }
-
-  @Override
-  public short getShort(int rowId) {
-    return (short) longData.vector[getRowIndex(rowId)];
-  }
-
-  @Override
-  public int getInt(int rowId) {
-    int value = (int) longData.vector[getRowIndex(rowId)];
-    if (isDate) {
-      return RebaseDateTime.rebaseJulianToGregorianDays(value);
-    } else {
-      return value;
+    @Override
+    public short getShort(int rowId) {
+        return (short) longData.vector[getRowIndex(rowId)];
     }
-  }
 
-  @Override
-  public long getLong(int rowId) {
-    int index = getRowIndex(rowId);
-    if (isTimestamp) {
-      return DateTimeUtils.fromJavaTimestamp(timestampData.asScratchTimestamp(index));
-    } else {
-      return longData.vector[index];
+    @Override
+    public int getInt(int rowId) {
+        int value = (int) longData.vector[getRowIndex(rowId)];
+        if (isDate) {
+            return RebaseDateTime.rebaseJulianToGregorianDays(value);
+        } else {
+            return value;
+        }
     }
-  }
 
-  @Override
-  public float getFloat(int rowId) {
-    return (float) doubleData.vector[getRowIndex(rowId)];
-  }
+    @Override
+    public long getLong(int rowId) {
+        int index = getRowIndex(rowId);
+        if (isTimestamp) {
+            return DateTimeUtils.fromJavaTimestamp(timestampData.asScratchTimestamp(index));
+        } else {
+            return longData.vector[index];
+        }
+    }
 
-  @Override
-  public double getDouble(int rowId) {
-    return doubleData.vector[getRowIndex(rowId)];
-  }
+    @Override
+    public float getFloat(int rowId) {
+        return (float) doubleData.vector[getRowIndex(rowId)];
+    }
 
-  @Override
-  public Decimal getDecimal(int rowId, int precision, int scale) {
-    if (isNullAt(rowId)) return null;
-    BigDecimal data = decimalData.vector[getRowIndex(rowId)].getHiveDecimal().bigDecimalValue();
-    return Decimal.apply(data, precision, scale);
-  }
+    @Override
+    public double getDouble(int rowId) {
+        return doubleData.vector[getRowIndex(rowId)];
+    }
 
-  @Override
-  public UTF8String getUTF8String(int rowId) {
-    if (isNullAt(rowId)) return null;
-    int index = getRowIndex(rowId);
-    BytesColumnVector col = bytesData;
-    return UTF8String.fromBytes(col.vector[index], col.start[index], col.length[index]);
-  }
+    @Override
+    public Decimal getDecimal(int rowId, int precision, int scale) {
+        if (isNullAt(rowId)) return null;
+        BigDecimal data = decimalData.vector[getRowIndex(rowId)].getHiveDecimal().bigDecimalValue();
+        return Decimal.apply(data, precision, scale);
+    }
 
-  @Override
-  public byte[] getBinary(int rowId) {
-    if (isNullAt(rowId)) return null;
-    int index = getRowIndex(rowId);
-    byte[] binary = new byte[bytesData.length[index]];
-    System.arraycopy(bytesData.vector[index], bytesData.start[index], binary, 0, binary.length);
-    return binary;
-  }
+    @Override
+    public UTF8String getUTF8String(int rowId) {
+        if (isNullAt(rowId)) return null;
+        int index = getRowIndex(rowId);
+        BytesColumnVector col = bytesData;
+        return UTF8String.fromBytes(col.vector[index], col.start[index], col.length[index]);
+    }
 
-  @Override
-  public ColumnarArray getArray(int rowId) {
-    throw new UnsupportedOperationException();
-  }
+    @Override
+    public byte[] getBinary(int rowId) {
+        if (isNullAt(rowId)) return null;
+        int index = getRowIndex(rowId);
+        byte[] binary = new byte[bytesData.length[index]];
+        System.arraycopy(bytesData.vector[index], bytesData.start[index], binary, 0, binary.length);
+        return binary;
+    }
 
-  @Override
-  public ColumnarMap getMap(int rowId) {
-    throw new UnsupportedOperationException();
-  }
+    @Override
+    public ColumnarArray getArray(int rowId) {
+        throw new UnsupportedOperationException();
+    }
 
-  @Override
-  public org.apache.spark.sql.vectorized.ColumnVector getChild(int ordinal) {
-    throw new UnsupportedOperationException();
-  }
+    @Override
+    public ColumnarMap getMap(int rowId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public org.apache.spark.sql.vectorized.ColumnVector getChild(int ordinal) {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -32,36 +32,36 @@ import java.util.Queue;
  */
 public class OrcFooterReader {
 
-  /**
-   * Read the columns statistics from ORC file footer.
-   *
-   * @param orcReader the reader to read ORC file footer.
-   * @return Statistics for all columns in the file.
-   */
-  public static OrcColumnsStatistics readStatistics(Reader orcReader) {
-    TypeDescription orcSchema = orcReader.getSchema();
-    ColumnStatistics[] orcStatistics = orcReader.getStatistics();
-    StructType dataType = OrcUtils.toCatalystSchema(orcSchema);
-    return convertStatistics(dataType, new LinkedList<>(Arrays.asList(orcStatistics)));
-  }
-
-  /**
-   * Convert a queue of ORC {@link ColumnStatistics}s into Spark {@link OrcColumnsStatistics}.
-   * The queue of ORC {@link ColumnStatistics}s are assumed to be ordered as tree pre-order.
-   */
-  private static OrcColumnsStatistics convertStatistics(
-      DataType dataType, Queue<ColumnStatistics> orcStatistics) {
-    OrcColumnsStatistics statistics = new OrcColumnsStatistics(orcStatistics.remove());
-    if (dataType instanceof StructType) {
-      for (StructField field : ((StructType) dataType).fields()) {
-        statistics.add(convertStatistics(field.dataType(), orcStatistics));
-      }
-    } else if (dataType instanceof MapType) {
-      statistics.add(convertStatistics(((MapType) dataType).keyType(), orcStatistics));
-      statistics.add(convertStatistics(((MapType) dataType).valueType(), orcStatistics));
-    } else if (dataType instanceof ArrayType) {
-      statistics.add(convertStatistics(((ArrayType) dataType).elementType(), orcStatistics));
+    /**
+     * Read the columns statistics from ORC file footer.
+     *
+     * @param orcReader the reader to read ORC file footer.
+     * @return Statistics for all columns in the file.
+     */
+    public static OrcColumnsStatistics readStatistics(Reader orcReader) {
+        TypeDescription orcSchema = orcReader.getSchema();
+        ColumnStatistics[] orcStatistics = orcReader.getStatistics();
+        StructType dataType = OrcUtils.toCatalystSchema(orcSchema);
+        return convertStatistics(dataType, new LinkedList<>(Arrays.asList(orcStatistics)));
     }
-    return statistics;
-  }
+
+    /**
+     * Convert a queue of ORC {@link ColumnStatistics}s into Spark {@link OrcColumnsStatistics}.
+     * The queue of ORC {@link ColumnStatistics}s are assumed to be ordered as tree pre-order.
+     */
+    private static OrcColumnsStatistics convertStatistics(
+            DataType dataType, Queue<ColumnStatistics> orcStatistics) {
+        OrcColumnsStatistics statistics = new OrcColumnsStatistics(orcStatistics.remove());
+        if (dataType instanceof StructType) {
+            for (StructField field : ((StructType) dataType).fields()) {
+                statistics.add(convertStatistics(field.dataType(), orcStatistics));
+            }
+        } else if (dataType instanceof MapType) {
+            statistics.add(convertStatistics(((MapType) dataType).keyType(), orcStatistics));
+            statistics.add(convertStatistics(((MapType) dataType).valueType(), orcStatistics));
+        } else if (dataType instanceof ArrayType) {
+            statistics.add(convertStatistics(((ArrayType) dataType).elementType(), orcStatistics));
+        }
+        return statistics;
+    }
 }

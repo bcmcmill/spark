@@ -31,5 +31,5 @@ import org.apache.spark.sql.sources.InsertableRelation;
  */
 @Unstable
 public interface V1Write extends Write {
-  InsertableRelation toInsertableRelation();
+    InsertableRelation toInsertableRelation();
 }

@@ -23,9 +23,9 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat
 
 case class HiveSerDe(
-  inputFormat: Option[String] = None,
-  outputFormat: Option[String] = None,
-  serde: Option[String] = None)
+                      inputFormat: Option[String] = None,
+                      outputFormat: Option[String] = None,
+                      serde: Option[String] = None)
 
 object HiveSerDe {
   val serdeMap = Map(
@@ -74,29 +74,6 @@ object HiveSerDe {
   }
 
   /**
-   * Get the Hive SerDe information from the data source abbreviation string or classname.
-   *
-   * @param source Currently the source abbreviation can be one of the following:
-   *               SequenceFile, RCFile, ORC, PARQUET, and case insensitive.
-   * @return HiveSerDe associated with the specified source
-   */
-  def sourceToSerDe(source: String): Option[HiveSerDe] = {
-    val key = source.toLowerCase(Locale.ROOT) match {
-      case s if s.startsWith("org.apache.spark.sql.parquet") => "parquet"
-      case s if s.startsWith("org.apache.spark.sql.execution.datasources.parquet") => "parquet"
-      case s if s.startsWith("org.apache.spark.sql.orc") => "orc"
-      case s if s.startsWith("org.apache.spark.sql.hive.orc") => "orc"
-      case s if s.startsWith("org.apache.spark.sql.execution.datasources.orc") => "orc"
-      case s if s.equals("orcfile") => "orc"
-      case s if s.equals("parquetfile") => "parquet"
-      case s if s.equals("avrofile") => "avro"
-      case s => s
-    }
-
-    serdeMap.get(key)
-  }
-
-  /**
    * Get the Spark data source name from the Hive SerDe information.
    *
    * @param serde Hive SerDe information.
@@ -123,5 +100,28 @@ object HiveSerDe {
         .orElse(Some("org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat")),
       serde = defaultHiveSerde.flatMap(_.serde)
         .orElse(Some("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")))
+  }
+
+  /**
+   * Get the Hive SerDe information from the data source abbreviation string or classname.
+   *
+   * @param source Currently the source abbreviation can be one of the following:
+   *               SequenceFile, RCFile, ORC, PARQUET, and case insensitive.
+   * @return HiveSerDe associated with the specified source
+   */
+  def sourceToSerDe(source: String): Option[HiveSerDe] = {
+    val key = source.toLowerCase(Locale.ROOT) match {
+      case s if s.startsWith("org.apache.spark.sql.parquet") => "parquet"
+      case s if s.startsWith("org.apache.spark.sql.execution.datasources.parquet") => "parquet"
+      case s if s.startsWith("org.apache.spark.sql.orc") => "orc"
+      case s if s.startsWith("org.apache.spark.sql.hive.orc") => "orc"
+      case s if s.startsWith("org.apache.spark.sql.execution.datasources.orc") => "orc"
+      case s if s.equals("orcfile") => "orc"
+      case s if s.equals("parquetfile") => "parquet"
+      case s if s.equals("avrofile") => "avro"
+      case s => s
+    }
+
+    serdeMap.get(key)
   }
 }

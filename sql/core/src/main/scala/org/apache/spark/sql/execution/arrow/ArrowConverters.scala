@@ -43,9 +43,9 @@ import org.apache.spark.util.{ByteBufferOutputStream, Utils}
  * Writes serialized ArrowRecordBatches to a DataOutputStream in the Arrow stream format.
  */
 private[sql] class ArrowBatchStreamWriter(
-    schema: StructType,
-    out: OutputStream,
-    timeZoneId: String) {
+                                           schema: StructType,
+                                           out: OutputStream,
+                                           timeZoneId: String) {
 
   val arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId)
   val writeChannel = new WriteChannel(Channels.newChannel(out))
@@ -75,11 +75,11 @@ private[sql] object ArrowConverters {
    * in a batch by setting maxRecordsPerBatch or use 0 to fully consume rowIter.
    */
   private[sql] def toBatchIterator(
-      rowIter: Iterator[InternalRow],
-      schema: StructType,
-      maxRecordsPerBatch: Int,
-      timeZoneId: String,
-      context: TaskContext): Iterator[Array[Byte]] = {
+                                    rowIter: Iterator[InternalRow],
+                                    schema: StructType,
+                                    maxRecordsPerBatch: Int,
+                                    timeZoneId: String,
+                                    context: TaskContext): Iterator[Array[Byte]] = {
 
     val arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId)
     val allocator =
@@ -127,13 +127,29 @@ private[sql] object ArrowConverters {
   }
 
   /**
+   * Create a DataFrame from an RDD of serialized ArrowRecordBatches.
+   */
+  private[sql] def toDataFrame(
+                                arrowBatchRDD: JavaRDD[Array[Byte]],
+                                schemaString: String,
+                                sqlContext: SQLContext): DataFrame = {
+    val schema = DataType.fromJson(schemaString).asInstanceOf[StructType]
+    val timeZoneId = sqlContext.sessionState.conf.sessionLocalTimeZone
+    val rdd = arrowBatchRDD.rdd.mapPartitions { iter =>
+      val context = TaskContext.get()
+      ArrowConverters.fromBatchIterator(iter, schema, timeZoneId, context)
+    }
+    sqlContext.internalCreateDataFrame(rdd.setName("arrow"), schema)
+  }
+
+  /**
    * Maps iterator from serialized ArrowRecordBatches to InternalRows.
    */
   private[sql] def fromBatchIterator(
-      arrowBatchIter: Iterator[Array[Byte]],
-      schema: StructType,
-      timeZoneId: String,
-      context: TaskContext): Iterator[InternalRow] = {
+                                      arrowBatchIter: Iterator[Array[Byte]],
+                                      schema: StructType,
+                                      timeZoneId: String,
+                                      context: TaskContext): Iterator[InternalRow] = {
     val allocator =
       ArrowUtils.rootAllocator.newChildAllocator("fromBatchIterator", 0, Long.MaxValue)
 
@@ -182,35 +198,19 @@ private[sql] object ArrowConverters {
    * Load a serialized ArrowRecordBatch.
    */
   private[arrow] def loadBatch(
-      batchBytes: Array[Byte],
-      allocator: BufferAllocator): ArrowRecordBatch = {
+                                batchBytes: Array[Byte],
+                                allocator: BufferAllocator): ArrowRecordBatch = {
     val in = new ByteArrayInputStream(batchBytes)
     MessageSerializer.deserializeRecordBatch(
-      new ReadChannel(Channels.newChannel(in)), allocator)  // throws IOException
-  }
-
-  /**
-   * Create a DataFrame from an RDD of serialized ArrowRecordBatches.
-   */
-  private[sql] def toDataFrame(
-      arrowBatchRDD: JavaRDD[Array[Byte]],
-      schemaString: String,
-      sqlContext: SQLContext): DataFrame = {
-    val schema = DataType.fromJson(schemaString).asInstanceOf[StructType]
-    val timeZoneId = sqlContext.sessionState.conf.sessionLocalTimeZone
-    val rdd = arrowBatchRDD.rdd.mapPartitions { iter =>
-      val context = TaskContext.get()
-      ArrowConverters.fromBatchIterator(iter, schema, timeZoneId, context)
-    }
-    sqlContext.internalCreateDataFrame(rdd.setName("arrow"), schema)
+      new ReadChannel(Channels.newChannel(in)), allocator) // throws IOException
   }
 
   /**
    * Read a file as an Arrow stream and parallelize as an RDD of serialized ArrowRecordBatches.
    */
   private[sql] def readArrowStreamFromFile(
-      sqlContext: SQLContext,
-      filename: String): JavaRDD[Array[Byte]] = {
+                                            sqlContext: SQLContext,
+                                            filename: String): JavaRDD[Array[Byte]] = {
     Utils.tryWithResource(new FileInputStream(filename)) { fileStream =>
       // Create array to consume iterator so that we can safely close the file
       val batches = getBatchesFromStream(fileStream.getChannel).toArray

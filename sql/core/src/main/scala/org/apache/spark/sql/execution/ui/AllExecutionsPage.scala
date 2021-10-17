@@ -66,7 +66,9 @@ private[ui] class AllExecutionsPage(parent: SQLTab) extends WebUIPage("") with L
                 'aggregated-runningExecutions')">
             <h4>
               <span class="collapse-table-arrow arrow-open"></span>
-              <a>Running Queries ({running.size})</a>
+              <a>Running Queries (
+                {running.size}
+                )</a>
             </h4>
           </span> ++
             <div class="aggregated-runningExecutions collapsible-table">
@@ -84,7 +86,9 @@ private[ui] class AllExecutionsPage(parent: SQLTab) extends WebUIPage("") with L
                 'aggregated-completedExecutions')">
             <h4>
               <span class="collapse-table-arrow arrow-open"></span>
-              <a>Completed Queries ({completed.size})</a>
+              <a>Completed Queries (
+                {completed.size}
+                )</a>
             </h4>
           </span> ++
             <div class="aggregated-completedExecutions collapsible-table">
@@ -102,7 +106,9 @@ private[ui] class AllExecutionsPage(parent: SQLTab) extends WebUIPage("") with L
                 'aggregated-failedExecutions')">
             <h4>
               <span class="collapse-table-arrow arrow-open"></span>
-              <a>Failed Queries ({failed.size})</a>
+              <a>Failed Queries (
+                {failed.size}
+                )</a>
             </h4>
           </span> ++
             <div class="aggregated-failedExecutions collapsible-table">
@@ -114,36 +120,31 @@ private[ui] class AllExecutionsPage(parent: SQLTab) extends WebUIPage("") with L
     content ++=
       <script>
         function clickDetail(details) {{
-          details.parentNode.querySelector('.stage-details').classList.toggle('collapsed')
+        details.parentNode.querySelector('.stage-details').classList.toggle('collapsed')
         }}
       </script>
     val summary: NodeSeq =
       <div>
         <ul class="list-unstyled">
-          {
-            if (running.nonEmpty) {
-              <li>
-                <a href="#running"><strong>Running Queries:</strong></a>
-                {running.size}
-              </li>
-            }
-          }
-          {
-            if (completed.nonEmpty) {
-              <li>
-                <a href="#completed"><strong>Completed Queries:</strong></a>
-                {completed.size}
-              </li>
-            }
-          }
-          {
-            if (failed.nonEmpty) {
-              <li>
-                <a href="#failed"><strong>Failed Queries:</strong></a>
-                {failed.size}
-              </li>
-            }
-          }
+          {if (running.nonEmpty) {
+          <li>
+            <a href="#running">
+              <strong>Running Queries:</strong>
+            </a>{running.size}
+          </li>
+        }}{if (completed.nonEmpty) {
+          <li>
+            <a href="#completed">
+              <strong>Completed Queries:</strong>
+            </a>{completed.size}
+          </li>
+        }}{if (failed.nonEmpty) {
+          <li>
+            <a href="#failed">
+              <strong>Failed Queries:</strong>
+            </a>{failed.size}
+          </li>
+        }}
         </ul>
       </div>
 
@@ -151,13 +152,13 @@ private[ui] class AllExecutionsPage(parent: SQLTab) extends WebUIPage("") with L
   }
 
   private def executionsTable(
-    request: HttpServletRequest,
-    executionTag: String,
-    executionData: Seq[SQLExecutionUIData],
-    currentTime: Long,
-    showRunningJobs: Boolean,
-    showSucceededJobs: Boolean,
-    showFailedJobs: Boolean): Seq[Node] = {
+                               request: HttpServletRequest,
+                               executionTag: String,
+                               executionData: Seq[SQLExecutionUIData],
+                               currentTime: Long,
+                               showRunningJobs: Boolean,
+                               showSucceededJobs: Boolean,
+                               showFailedJobs: Boolean): Seq[Node] = {
 
     val executionPage =
       Option(request.getParameter(s"$executionTag.page")).map(_.toInt).getOrElse(1)
@@ -190,21 +191,17 @@ private[ui] class AllExecutionsPage(parent: SQLTab) extends WebUIPage("") with L
 }
 
 private[ui] class ExecutionPagedTable(
-    request: HttpServletRequest,
-    parent: SQLTab,
-    data: Seq[SQLExecutionUIData],
-    tableHeaderId: String,
-    executionTag: String,
-    basePath: String,
-    subPath: String,
-    currentTime: Long,
-    showRunningJobs: Boolean,
-    showSucceededJobs: Boolean,
-    showFailedJobs: Boolean) extends PagedTable[ExecutionTableRowData] {
-
-  private val (sortColumn, desc, pageSize) = getTableParameters(request, executionTag, "ID")
-
-  private val encodedSortColumn = URLEncoder.encode(sortColumn, UTF_8.name())
+                                       request: HttpServletRequest,
+                                       parent: SQLTab,
+                                       data: Seq[SQLExecutionUIData],
+                                       tableHeaderId: String,
+                                       executionTag: String,
+                                       basePath: String,
+                                       subPath: String,
+                                       currentTime: Long,
+                                       showRunningJobs: Boolean,
+                                       showSucceededJobs: Boolean,
+                                       showFailedJobs: Boolean) extends PagedTable[ExecutionTableRowData] {
 
   override val dataSource = new ExecutionDataSource(
     data,
@@ -215,7 +212,8 @@ private[ui] class ExecutionPagedTable(
     showRunningJobs,
     showSucceededJobs,
     showFailedJobs)
-
+  private val (sortColumn, desc, pageSize) = getTableParameters(request, executionTag, "ID")
+  private val encodedSortColumn = URLEncoder.encode(sortColumn, UTF_8.name())
   private val parameterPath =
     s"$basePath/$subPath/?${getParameterOtherTable(request, executionTag)}"
 
@@ -276,7 +274,9 @@ private[ui] class ExecutionPagedTable(
 
     def jobLinks(jobData: Seq[Int]): Seq[Node] = {
       jobData.map { jobId =>
-        <a href={jobURL(request, jobId)}>[{jobId.toString}]</a>
+        <a href={jobURL(request, jobId)}>[
+          {jobId.toString}
+          ]</a>
       }
     }
 
@@ -292,22 +292,19 @@ private[ui] class ExecutionPagedTable(
       </td>
       <td sorttable_customkey={duration.toString}>
         {UIUtils.formatDuration(duration)}
+      </td>{if (showRunningJobs) {
+      <td>
+        {jobLinks(executionTableRow.runningJobData)}
       </td>
-      {if (showRunningJobs) {
-        <td>
-          {jobLinks(executionTableRow.runningJobData)}
-        </td>
-      }}
-      {if (showSucceededJobs) {
-        <td>
-          {jobLinks(executionTableRow.completedJobData)}
-        </td>
-      }}
-      {if (showFailedJobs) {
-        <td>
-          {jobLinks(executionTableRow.failedJobData)}
-        </td>
-      }}
+    }}{if (showSucceededJobs) {
+      <td>
+        {jobLinks(executionTableRow.completedJobData)}
+      </td>
+    }}{if (showFailedJobs) {
+      <td>
+        {jobLinks(executionTableRow.failedJobData)}
+      </td>
+    }}
     </tr>
   }
 
@@ -317,49 +314,58 @@ private[ui] class ExecutionPagedTable(
             class="expand-details">
         +details
       </span> ++
-      <div class="stage-details collapsed">
-        <pre>{execution.description}<br></br>{execution.details}</pre>
-      </div>
+        <div class="stage-details collapsed">
+          <pre>
+            {execution.description}<br></br>{execution.details}
+          </pre>
+        </div>
     } else {
       Nil
     }
 
     val desc = if (execution.description != null && execution.description.nonEmpty) {
       <a href={executionURL(execution.executionId)} class="description-input">
-        {execution.description}</a>
+        {execution.description}
+      </a>
     } else {
-      <a href={executionURL(execution.executionId)}>{execution.executionId}</a>
+      <a href={executionURL(execution.executionId)}>
+        {execution.executionId}
+      </a>
     }
 
-    <div>{desc}{details}</div>
+    <div>
+      {desc}{details}
+    </div>
   }
+
+  private def executionURL(executionID: Long): String =
+    s"${
+      UIUtils.prependBaseUri(
+        request, parent.basePath)
+    }/${parent.prefix}/execution/?id=$executionID"
 
   private def jobURL(request: HttpServletRequest, jobId: Long): String =
     "%s/jobs/job/?id=%s".format(UIUtils.prependBaseUri(request, parent.basePath), jobId)
-
-  private def executionURL(executionID: Long): String =
-    s"${UIUtils.prependBaseUri(
-      request, parent.basePath)}/${parent.prefix}/execution/?id=$executionID"
 }
 
 
 private[ui] class ExecutionTableRowData(
-    val duration: Long,
-    val executionUIData: SQLExecutionUIData,
-    val runningJobData: Seq[Int],
-    val completedJobData: Seq[Int],
-    val failedJobData: Seq[Int])
+                                         val duration: Long,
+                                         val executionUIData: SQLExecutionUIData,
+                                         val runningJobData: Seq[Int],
+                                         val completedJobData: Seq[Int],
+                                         val failedJobData: Seq[Int])
 
 
 private[ui] class ExecutionDataSource(
-    executionData: Seq[SQLExecutionUIData],
-    currentTime: Long,
-    pageSize: Int,
-    sortColumn: String,
-    desc: Boolean,
-    showRunningJobs: Boolean,
-    showSucceededJobs: Boolean,
-    showFailedJobs: Boolean) extends PagedDataSource[ExecutionTableRowData](pageSize) {
+                                       executionData: Seq[SQLExecutionUIData],
+                                       currentTime: Long,
+                                       pageSize: Int,
+                                       sortColumn: String,
+                                       desc: Boolean,
+                                       showRunningJobs: Boolean,
+                                       showSucceededJobs: Boolean,
+                                       showFailedJobs: Boolean) extends PagedDataSource[ExecutionTableRowData](pageSize) {
 
   // Convert ExecutionData to ExecutionTableRowData which contains the final contents to show
   // in the table so that we can avoid creating duplicate contents during sorting the data

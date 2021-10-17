@@ -32,10 +32,10 @@ import org.apache.spark.sql.execution.SparkPlan
  * Thus marking them as transient.
  */
 case class CommandResult(
-    output: Seq[Attribute],
-    @transient commandLogicalPlan: LogicalPlan,
-    @transient commandPhysicalPlan: SparkPlan,
-    @transient rows: Seq[InternalRow]) extends LeafNode {
+                          output: Seq[Attribute],
+                          @transient commandLogicalPlan: LogicalPlan,
+                          @transient commandPhysicalPlan: SparkPlan,
+                          @transient rows: Seq[InternalRow]) extends LeafNode {
   override def innerChildren: Seq[QueryPlan[_]] = Seq(commandLogicalPlan)
 
   override def computeStats(): Statistics =

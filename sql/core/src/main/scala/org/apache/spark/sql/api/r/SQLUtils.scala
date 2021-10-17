@@ -38,22 +38,26 @@ import org.apache.spark.sql.types._
 private[sql] object SQLUtils extends Logging {
   SerDe.setSQLReadObject(readSqlObject).setSQLWriteObject(writeSqlObject)
 
+  // Schema for DataFrame of serialized R data
+  // TODO: introduce a user defined type for serialized R data.
+  val SERIALIZED_R_DATA_SCHEMA = StructType(Seq(StructField("R", BinaryType)))
+
   def getOrCreateSparkSession(
-      jsc: JavaSparkContext,
-      sparkConfigMap: JMap[Object, Object],
-      enableHiveSupport: Boolean): SparkSession = {
+                               jsc: JavaSparkContext,
+                               sparkConfigMap: JMap[Object, Object],
+                               enableHiveSupport: Boolean): SparkSession = {
     val spark =
       if (enableHiveSupport &&
-          jsc.sc.conf.get(CATALOG_IMPLEMENTATION.key, "hive").toLowerCase(Locale.ROOT) ==
-            "hive" &&
-          // Note that the order of conditions here are on purpose.
-          // `SparkSession.hiveClassesArePresent` checks if Hive's `HiveConf` is loadable or not;
-          // however, `HiveConf` itself has some static logic to check if Hadoop version is
-          // supported or not, which throws an `IllegalArgumentException` if unsupported.
-          // If this is checked first, there's no way to disable Hive support in the case above.
-          // So, we intentionally check if Hive classes are loadable or not only when
-          // Hive support is explicitly enabled by short-circuiting. See also SPARK-26422.
-          SparkSession.hiveClassesArePresent) {
+        jsc.sc.conf.get(CATALOG_IMPLEMENTATION.key, "hive").toLowerCase(Locale.ROOT) ==
+          "hive" &&
+        // Note that the order of conditions here are on purpose.
+        // `SparkSession.hiveClassesArePresent` checks if Hive's `HiveConf` is loadable or not;
+        // however, `HiveConf` itself has some static logic to check if Hadoop version is
+        // supported or not, which throws an `IllegalArgumentException` if unsupported.
+        // If this is checked first, there's no way to disable Hive support in the case above.
+        // So, we intentionally check if Hive classes are loadable or not only when
+        // Hive support is explicitly enabled by short-circuiting. See also SPARK-26422.
+        SparkSession.hiveClassesArePresent) {
         SparkSession.builder().enableHiveSupport().sparkContext(jsc.sc).getOrCreate()
       } else {
         if (enableHiveSupport) {
@@ -68,8 +72,8 @@ private[sql] object SQLUtils extends Logging {
   }
 
   def setSparkContextSessionConf(
-      spark: SparkSession,
-      sparkConfigMap: JMap[Object, Object]): Unit = {
+                                  spark: SparkSession,
+                                  sparkConfigMap: JMap[Object, Object]): Unit = {
     for ((name, value) <- sparkConfigMap.asScala) {
       spark.sessionState.conf.setConfString(name.toString, value.toString)
     }
@@ -86,13 +90,13 @@ private[sql] object SQLUtils extends Logging {
     new JavaSparkContext(spark.sparkContext)
   }
 
-  def createStructType(fields: Seq[StructField]): StructType = {
-    StructType(fields)
-  }
-
   // Support using regex in string interpolation
   private[this] implicit class RegexContext(sc: StringContext) {
     def r: Regex = new Regex(sc.parts.mkString, sc.parts.tail.map(_ => "x"): _*)
+  }
+
+  def createStructType(fields: Seq[StructField]): StructType = {
+    StructType(fields)
   }
 
   def createStructField(name: String, dataType: String, nullable: Boolean): StructField = {
@@ -106,8 +110,13 @@ private[sql] object SQLUtils extends Logging {
     sparkSession.createDataFrame(rowRDD, schema)
   }
 
-  def dfToRowRDD(df: DataFrame): JavaRDD[Array[Byte]] = {
-    df.rdd.map(r => rowToRBytes(r))
+  private[sql] def bytesToRow(bytes: Array[Byte], schema: StructType): Row = {
+    val bis = new ByteArrayInputStream(bytes)
+    val dis = new DataInputStream(bis)
+    val num = SerDe.readInt(dis)
+    Row.fromSeq((0 until num).map { i =>
+      doConversion(SerDe.readObject(dis, jvmObjectTracker = null), schema.fields(i).dataType)
+    })
   }
 
   private[this] def doConversion(data: Object, dataType: DataType): Object = {
@@ -120,13 +129,8 @@ private[sql] object SQLUtils extends Logging {
     }
   }
 
-  private[sql] def bytesToRow(bytes: Array[Byte], schema: StructType): Row = {
-    val bis = new ByteArrayInputStream(bytes)
-    val dis = new DataInputStream(bis)
-    val num = SerDe.readInt(dis)
-    Row.fromSeq((0 until num).map { i =>
-      doConversion(SerDe.readObject(dis, jvmObjectTracker = null), schema.fields(i).dataType)
-    })
+  def dfToRowRDD(df: DataFrame): JavaRDD[Array[Byte]] = {
+    df.rdd.map(r => rowToRBytes(r))
   }
 
   private[sql] def rowToRBytes(row: Row): Array[Byte] = {
@@ -138,19 +142,15 @@ private[sql] object SQLUtils extends Logging {
     bos.toByteArray()
   }
 
-  // Schema for DataFrame of serialized R data
-  // TODO: introduce a user defined type for serialized R data.
-  val SERIALIZED_R_DATA_SCHEMA = StructType(Seq(StructField("R", BinaryType)))
-
   /**
    * The helper function for dapply() on R side.
    */
   def dapply(
-      df: DataFrame,
-      func: Array[Byte],
-      packageNames: Array[Byte],
-      broadcastVars: Array[Object],
-      schema: StructType): DataFrame = {
+              df: DataFrame,
+              func: Array[Byte],
+              packageNames: Array[Byte],
+              broadcastVars: Array[Object],
+              schema: StructType): DataFrame = {
     val bv = broadcastVars.map(_.asInstanceOf[Broadcast[Object]])
     val realSchema = if (schema == null) SERIALIZED_R_DATA_SCHEMA else schema
     df.mapPartitionsInR(func, packageNames, bv, realSchema)
@@ -160,11 +160,11 @@ private[sql] object SQLUtils extends Logging {
    * The helper function for gapply() on R side.
    */
   def gapply(
-      gd: RelationalGroupedDataset,
-      func: Array[Byte],
-      packageNames: Array[Byte],
-      broadcastVars: Array[Object],
-      schema: StructType): DataFrame = {
+              gd: RelationalGroupedDataset,
+              func: Array[Byte],
+              packageNames: Array[Byte],
+              broadcastVars: Array[Object],
+              schema: StructType): DataFrame = {
     val bv = broadcastVars.map(_.asInstanceOf[Broadcast[Object]])
     val realSchema = if (schema == null) SERIALIZED_R_DATA_SCHEMA else schema
     gd.flatMapGroupsInR(func, packageNames, bv, realSchema)
@@ -228,8 +228,8 @@ private[sql] object SQLUtils extends Logging {
    * using each serialized ArrowRecordBatch as a partition.
    */
   def readArrowStreamFromFile(
-      sparkSession: SparkSession,
-      filename: String): JavaRDD[Array[Byte]] = {
+                               sparkSession: SparkSession,
+                               filename: String): JavaRDD[Array[Byte]] = {
     ArrowConverters.readArrowStreamFromFile(sparkSession.sqlContext, filename)
   }
 
@@ -238,9 +238,9 @@ private[sql] object SQLUtils extends Logging {
    * ArrowRecordBatches.
    */
   def toDataFrame(
-      arrowBatchRDD: JavaRDD[Array[Byte]],
-      schema: StructType,
-      sparkSession: SparkSession): DataFrame = {
+                   arrowBatchRDD: JavaRDD[Array[Byte]],
+                   schema: StructType,
+                   sparkSession: SparkSession): DataFrame = {
     ArrowConverters.toDataFrame(arrowBatchRDD, schema.json, sparkSession.sqlContext)
   }
 }

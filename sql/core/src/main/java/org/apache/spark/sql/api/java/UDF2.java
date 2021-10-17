@@ -26,5 +26,5 @@ import org.apache.spark.annotation.Stable;
  */
 @Stable
 public interface UDF2<T1, T2, R> extends Serializable {
-  R call(T1 t1, T2 t2) throws Exception;
+    R call(T1 t1, T2 t2) throws Exception;
 }

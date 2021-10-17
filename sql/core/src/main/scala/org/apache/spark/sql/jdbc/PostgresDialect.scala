@@ -30,7 +30,7 @@ private object PostgresDialect extends JdbcDialect {
     url.toLowerCase(Locale.ROOT).startsWith("jdbc:postgresql")
 
   override def getCatalystType(
-      sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
+                                sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
     if (sqlType == Types.REAL) {
       Some(FloatType)
     } else if (sqlType == Types.SMALLINT) {
@@ -51,9 +51,9 @@ private object PostgresDialect extends JdbcDialect {
   }
 
   private def toCatalystType(
-      typeName: String,
-      precision: Int,
-      scale: Int): Option[DataType] = typeName match {
+                              typeName: String,
+                              precision: Int,
+                              scale: Int): Option[DataType] = typeName match {
     case "bool" => Some(BooleanType)
     case "bit" => Some(BinaryType)
     case "int2" => Some(ShortType)
@@ -72,7 +72,7 @@ private object PostgresDialect extends JdbcDialect {
     case "numeric" | "decimal" if precision > 0 => Some(DecimalType.bounded(precision, scale))
     case "numeric" | "decimal" =>
       // SPARK-26538: handle numeric without explicit precision and scale.
-      Some(DecimalType. SYSTEM_DEFAULT)
+      Some(DecimalType.SYSTEM_DEFAULT)
     case "money" =>
       // money[] type seems to be broken and difficult to handle.
       // So this method returns None for now.
@@ -107,17 +107,18 @@ private object PostgresDialect extends JdbcDialect {
    * The SQL query used to truncate a table. For Postgres, the default behaviour is to
    * also truncate any descendant tables. As this is a (possibly unwanted) side-effect,
    * the Postgres dialect adds 'ONLY' to truncate only the table in question
-   * @param table The table to truncate
+   *
+   * @param table   The table to truncate
    * @param cascade Whether or not to cascade the truncation. Default value is the value of
    *                isCascadingTruncateTable(). Cascading a truncation will truncate tables
-    *               with a foreign key relationship to the target table. However, it will not
-    *               truncate tables with an inheritance relationship to the target table, as
-    *               the truncate query always includes "ONLY" to prevent this behaviour.
+   *                with a foreign key relationship to the target table. However, it will not
+   *                truncate tables with an inheritance relationship to the target table, as
+   *                the truncate query always includes "ONLY" to prevent this behaviour.
    * @return The SQL query to use for truncating a table
    */
   override def getTruncateQuery(
-      table: String,
-      cascade: Option[Boolean] = isCascadingTruncateTable): String = {
+                                 table: String,
+                                 cascade: Option[Boolean] = isCascadingTruncateTable): String = {
     cascade match {
       case Some(true) => s"TRUNCATE TABLE ONLY $table CASCADE"
       case _ => s"TRUNCATE TABLE ONLY $table"
@@ -140,17 +141,17 @@ private object PostgresDialect extends JdbcDialect {
 
   // See https://www.postgresql.org/docs/12/sql-altertable.html
   override def getUpdateColumnTypeQuery(
-      tableName: String,
-      columnName: String,
-      newDataType: String): String = {
+                                         tableName: String,
+                                         columnName: String,
+                                         newDataType: String): String = {
     s"ALTER TABLE $tableName ALTER COLUMN ${quoteIdentifier(columnName)} TYPE $newDataType"
   }
 
   // See https://www.postgresql.org/docs/12/sql-altertable.html
   override def getUpdateColumnNullabilityQuery(
-      tableName: String,
-      columnName: String,
-      isNullable: Boolean): String = {
+                                                tableName: String,
+                                                columnName: String,
+                                                isNullable: Boolean): String = {
     val nullable = if (isNullable) "DROP NOT NULL" else "SET NOT NULL"
     s"ALTER TABLE $tableName ALTER COLUMN ${quoteIdentifier(columnName)} $nullable"
   }

@@ -46,174 +46,168 @@ import org.apache.spark.sql.vectorized.ColumnarBatch;
  */
 public class OrcColumnarBatchReader extends RecordReader<Void, ColumnarBatch> {
 
-  // The capacity of vectorized batch.
-  private int capacity;
+    /**
+     * The column IDs of the physical ORC file schema which are required by this reader.
+     * -1 means this required column is partition column, or it doesn't exist in the ORC file.
+     * Ideally partition column should never appear in the physical file, and should only appear
+     * in the directory name. However, Spark allows partition columns inside physical file,
+     * but Spark will discard the values from the file, and use the partition value got from
+     * directory name. The column order will be reserved though.
+     */
+    @VisibleForTesting
+    public int[] requestedDataColIds;
+    // The result columnar batch for vectorized execution by whole-stage codegen.
+    @VisibleForTesting
+    public ColumnarBatch columnarBatch;
+    // The capacity of vectorized batch.
+    private int capacity;
+    // Vectorized ORC Row Batch wrap.
+    private VectorizedRowBatchWrap wrap;
+    // Record reader from ORC row batch.
+    private org.apache.orc.RecordReader recordReader;
+    private StructField[] requiredFields;
+    // The wrapped ORC column vectors.
+    private org.apache.spark.sql.vectorized.ColumnVector[] orcVectorWrappers;
 
-  // Vectorized ORC Row Batch wrap.
-  private VectorizedRowBatchWrap wrap;
+    private OrcTail cachedTail;
 
-  /**
-   * The column IDs of the physical ORC file schema which are required by this reader.
-   * -1 means this required column is partition column, or it doesn't exist in the ORC file.
-   * Ideally partition column should never appear in the physical file, and should only appear
-   * in the directory name. However, Spark allows partition columns inside physical file,
-   * but Spark will discard the values from the file, and use the partition value got from
-   * directory name. The column order will be reserved though.
-   */
-  @VisibleForTesting
-  public int[] requestedDataColIds;
-
-  // Record reader from ORC row batch.
-  private org.apache.orc.RecordReader recordReader;
-
-  private StructField[] requiredFields;
-
-  // The result columnar batch for vectorized execution by whole-stage codegen.
-  @VisibleForTesting
-  public ColumnarBatch columnarBatch;
-
-  // The wrapped ORC column vectors.
-  private org.apache.spark.sql.vectorized.ColumnVector[] orcVectorWrappers;
-
-  private OrcTail cachedTail;
-
-  public OrcColumnarBatchReader(int capacity) {
-    this.capacity = capacity;
-  }
-
-
-  @Override
-  public Void getCurrentKey() {
-    return null;
-  }
-
-  @Override
-  public ColumnarBatch getCurrentValue() {
-    return columnarBatch;
-  }
-
-  @Override
-  public float getProgress() throws IOException {
-    return recordReader.getProgress();
-  }
-
-  @Override
-  public boolean nextKeyValue() throws IOException {
-    return nextBatch();
-  }
-
-  @Override
-  public void close() throws IOException {
-    if (columnarBatch != null) {
-      columnarBatch.close();
-      columnarBatch = null;
+    public OrcColumnarBatchReader(int capacity) {
+        this.capacity = capacity;
     }
-    if (recordReader != null) {
-      recordReader.close();
-      recordReader = null;
+
+
+    @Override
+    public Void getCurrentKey() {
+        return null;
     }
-  }
 
-  /**
-   * Initialize ORC file reader and batch record reader.
-   * Please note that `initBatch` is needed to be called after this.
-   */
-  @Override
-  public void initialize(
-      InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException {
-    FileSplit fileSplit = (FileSplit)inputSplit;
-    Configuration conf = taskAttemptContext.getConfiguration();
-    Reader reader = OrcFile.createReader(
-      fileSplit.getPath(),
-      OrcFile.readerOptions(conf)
-        .maxLength(OrcConf.MAX_FILE_LENGTH.getLong(conf))
-        .filesystem(fileSplit.getPath().getFileSystem(conf))
-        .orcTail(cachedTail));
-    Reader.Options options =
-      OrcInputFormat.buildOptions(conf, reader, fileSplit.getStart(), fileSplit.getLength());
-    recordReader = reader.rows(options);
-  }
-
-  /**
-   * Initialize columnar batch by setting required schema and partition information.
-   * With this information, this creates ColumnarBatch with the full schema.
-   *
-   * @param orcSchema Schema from ORC file reader.
-   * @param requiredFields All the fields that are required to return, including partition fields.
-   * @param requestedDataColIds Requested column ids from orcSchema. -1 if not existed.
-   * @param requestedPartitionColIds Requested column ids from partition schema. -1 if not existed.
-   * @param partitionValues Values of partition columns.
-   */
-  public void initBatch(
-      TypeDescription orcSchema,
-      StructField[] requiredFields,
-      int[] requestedDataColIds,
-      int[] requestedPartitionColIds,
-      InternalRow partitionValues) {
-    wrap = new VectorizedRowBatchWrap(orcSchema.createRowBatch(capacity));
-    assert(!wrap.batch().selectedInUse); // `selectedInUse` should be initialized with `false`.
-    assert(requiredFields.length == requestedDataColIds.length);
-    assert(requiredFields.length == requestedPartitionColIds.length);
-    // If a required column is also partition column, use partition value and don't read from file.
-    for (int i = 0; i < requiredFields.length; i++) {
-      if (requestedPartitionColIds[i] != -1) {
-        requestedDataColIds[i] = -1;
-      }
+    @Override
+    public ColumnarBatch getCurrentValue() {
+        return columnarBatch;
     }
-    this.requiredFields = requiredFields;
-    this.requestedDataColIds = requestedDataColIds;
 
-    StructType resultSchema = new StructType(requiredFields);
+    @Override
+    public float getProgress() throws IOException {
+        return recordReader.getProgress();
+    }
 
-    // Just wrap the ORC column vector instead of copying it to Spark column vector.
-    orcVectorWrappers = new org.apache.spark.sql.vectorized.ColumnVector[resultSchema.length()];
+    @Override
+    public boolean nextKeyValue() throws IOException {
+        return nextBatch();
+    }
 
-    for (int i = 0; i < requiredFields.length; i++) {
-      DataType dt = requiredFields[i].dataType();
-      if (requestedPartitionColIds[i] != -1) {
-        OnHeapColumnVector partitionCol = new OnHeapColumnVector(capacity, dt);
-        ColumnVectorUtils.populate(partitionCol, partitionValues, requestedPartitionColIds[i]);
-        partitionCol.setIsConstant();
-        orcVectorWrappers[i] = partitionCol;
-      } else {
-        int colId = requestedDataColIds[i];
-        // Initialize the missing columns once.
-        if (colId == -1) {
-          OnHeapColumnVector missingCol = new OnHeapColumnVector(capacity, dt);
-          missingCol.putNulls(0, capacity);
-          missingCol.setIsConstant();
-          orcVectorWrappers[i] = missingCol;
-        } else {
-          orcVectorWrappers[i] = OrcColumnVectorUtils.toOrcColumnVector(
-            dt, wrap.batch().cols[colId]);
+    @Override
+    public void close() throws IOException {
+        if (columnarBatch != null) {
+            columnarBatch.close();
+            columnarBatch = null;
         }
-      }
+        if (recordReader != null) {
+            recordReader.close();
+            recordReader = null;
+        }
     }
 
-    columnarBatch = new ColumnarBatch(orcVectorWrappers);
-  }
-
-  public void setCachedTail(OrcTail cachedTail) {
-    this.cachedTail = cachedTail;
-  }
-
-  /**
-   * Return true if there exists more data in the next batch. If exists, prepare the next batch
-   * by copying from ORC VectorizedRowBatch columns to Spark ColumnarBatch columns.
-   */
-  private boolean nextBatch() throws IOException {
-    recordReader.nextBatch(wrap.batch());
-    int batchSize = wrap.batch().size;
-    if (batchSize == 0) {
-      return false;
+    /**
+     * Initialize ORC file reader and batch record reader.
+     * Please note that `initBatch` is needed to be called after this.
+     */
+    @Override
+    public void initialize(
+            InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException {
+        FileSplit fileSplit = (FileSplit) inputSplit;
+        Configuration conf = taskAttemptContext.getConfiguration();
+        Reader reader = OrcFile.createReader(
+                fileSplit.getPath(),
+                OrcFile.readerOptions(conf)
+                        .maxLength(OrcConf.MAX_FILE_LENGTH.getLong(conf))
+                        .filesystem(fileSplit.getPath().getFileSystem(conf))
+                        .orcTail(cachedTail));
+        Reader.Options options =
+                OrcInputFormat.buildOptions(conf, reader, fileSplit.getStart(), fileSplit.getLength());
+        recordReader = reader.rows(options);
     }
-    columnarBatch.setNumRows(batchSize);
 
-    for (int i = 0; i < requiredFields.length; i++) {
-      if (requestedDataColIds[i] != -1) {
-        ((OrcColumnVector) orcVectorWrappers[i]).setBatchSize(batchSize);
-      }
+    /**
+     * Initialize columnar batch by setting required schema and partition information.
+     * With this information, this creates ColumnarBatch with the full schema.
+     *
+     * @param orcSchema                Schema from ORC file reader.
+     * @param requiredFields           All the fields that are required to return, including partition fields.
+     * @param requestedDataColIds      Requested column ids from orcSchema. -1 if not existed.
+     * @param requestedPartitionColIds Requested column ids from partition schema. -1 if not existed.
+     * @param partitionValues          Values of partition columns.
+     */
+    public void initBatch(
+            TypeDescription orcSchema,
+            StructField[] requiredFields,
+            int[] requestedDataColIds,
+            int[] requestedPartitionColIds,
+            InternalRow partitionValues) {
+        wrap = new VectorizedRowBatchWrap(orcSchema.createRowBatch(capacity));
+        assert (!wrap.batch().selectedInUse); // `selectedInUse` should be initialized with `false`.
+        assert (requiredFields.length == requestedDataColIds.length);
+        assert (requiredFields.length == requestedPartitionColIds.length);
+        // If a required column is also partition column, use partition value and don't read from file.
+        for (int i = 0; i < requiredFields.length; i++) {
+            if (requestedPartitionColIds[i] != -1) {
+                requestedDataColIds[i] = -1;
+            }
+        }
+        this.requiredFields = requiredFields;
+        this.requestedDataColIds = requestedDataColIds;
+
+        StructType resultSchema = new StructType(requiredFields);
+
+        // Just wrap the ORC column vector instead of copying it to Spark column vector.
+        orcVectorWrappers = new org.apache.spark.sql.vectorized.ColumnVector[resultSchema.length()];
+
+        for (int i = 0; i < requiredFields.length; i++) {
+            DataType dt = requiredFields[i].dataType();
+            if (requestedPartitionColIds[i] != -1) {
+                OnHeapColumnVector partitionCol = new OnHeapColumnVector(capacity, dt);
+                ColumnVectorUtils.populate(partitionCol, partitionValues, requestedPartitionColIds[i]);
+                partitionCol.setIsConstant();
+                orcVectorWrappers[i] = partitionCol;
+            } else {
+                int colId = requestedDataColIds[i];
+                // Initialize the missing columns once.
+                if (colId == -1) {
+                    OnHeapColumnVector missingCol = new OnHeapColumnVector(capacity, dt);
+                    missingCol.putNulls(0, capacity);
+                    missingCol.setIsConstant();
+                    orcVectorWrappers[i] = missingCol;
+                } else {
+                    orcVectorWrappers[i] = OrcColumnVectorUtils.toOrcColumnVector(
+                            dt, wrap.batch().cols[colId]);
+                }
+            }
+        }
+
+        columnarBatch = new ColumnarBatch(orcVectorWrappers);
     }
-    return true;
-  }
+
+    public void setCachedTail(OrcTail cachedTail) {
+        this.cachedTail = cachedTail;
+    }
+
+    /**
+     * Return true if there exists more data in the next batch. If exists, prepare the next batch
+     * by copying from ORC VectorizedRowBatch columns to Spark ColumnarBatch columns.
+     */
+    private boolean nextBatch() throws IOException {
+        recordReader.nextBatch(wrap.batch());
+        int batchSize = wrap.batch().size;
+        if (batchSize == 0) {
+            return false;
+        }
+        columnarBatch.setNumRows(batchSize);
+
+        for (int i = 0; i < requiredFields.length; i++) {
+            if (requestedDataColIds[i] != -1) {
+                ((OrcColumnVector) orcVectorWrappers[i]).setBatchSize(batchSize);
+            }
+        }
+        return true;
+    }
 }

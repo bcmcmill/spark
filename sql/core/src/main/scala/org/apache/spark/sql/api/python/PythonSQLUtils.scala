@@ -41,11 +41,6 @@ private[sql] object PythonSQLUtils extends Logging {
     FunctionRegistry.functionSet.flatMap(f => FunctionRegistry.builtin.lookupFunction(f)).toArray
   }
 
-  private def listAllSQLConfigs(): Seq[(String, String, String, String)] = {
-    val conf = new SQLConf()
-    conf.getAllDefinedConfs
-  }
-
   def listRuntimeSQLConfigs(): Array[(String, String, String, String)] = {
     // Py4J doesn't seem to translate Seq well, so we convert to an Array.
     listAllSQLConfigs().filterNot(p => SQLConf.isStaticConfigKey(p._1)).toArray
@@ -53,6 +48,11 @@ private[sql] object PythonSQLUtils extends Logging {
 
   def listStaticSQLConfigs(): Array[(String, String, String, String)] = {
     listAllSQLConfigs().filter(p => SQLConf.isStaticConfigKey(p._1)).toArray
+  }
+
+  private def listAllSQLConfigs(): Seq[(String, String, String, String)] = {
+    val conf = new SQLConf()
+    conf.getAllDefinedConfs
   }
 
   /**
@@ -68,9 +68,9 @@ private[sql] object PythonSQLUtils extends Logging {
    * from an RDD.
    */
   def toDataFrame(
-      arrowBatchRDD: JavaRDD[Array[Byte]],
-      schemaString: String,
-      sqlContext: SQLContext): DataFrame = {
+                   arrowBatchRDD: JavaRDD[Array[Byte]],
+                   schemaString: String,
+                   sqlContext: SQLContext): DataFrame = {
     ArrowConverters.toDataFrame(arrowBatchRDD, schemaString, sqlContext)
   }
 

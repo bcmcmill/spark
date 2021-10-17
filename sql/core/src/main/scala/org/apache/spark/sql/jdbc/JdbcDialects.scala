@@ -42,12 +42,13 @@ import org.apache.spark.sql.types._
  * :: DeveloperApi ::
  * A database type definition coupled with the jdbc type needed to send null
  * values to the database.
+ *
  * @param databaseTypeDefinition The database type definition
- * @param jdbcNullType The jdbc type (as defined in java.sql.Types) used to
- *                     send a null value to the database.
+ * @param jdbcNullType           The jdbc type (as defined in java.sql.Types) used to
+ *                               send a null value to the database.
  */
 @DeveloperApi
-case class JdbcType(databaseTypeDefinition : String, jdbcNullType : Int)
+case class JdbcType(databaseTypeDefinition: String, jdbcNullType: Int)
 
 /**
  * :: DeveloperApi ::
@@ -69,46 +70,42 @@ case class JdbcType(databaseTypeDefinition : String, jdbcNullType : Int)
  * for the given Catalyst type.
  */
 @DeveloperApi
-abstract class JdbcDialect extends Serializable with Logging{
+abstract class JdbcDialect extends Serializable with Logging {
   /**
    * Check if this dialect instance can handle a certain jdbc url.
+   *
    * @param url the jdbc url.
    * @return True if the dialect can be applied on the given jdbc url.
    * @throws NullPointerException if the url is null.
    */
-  def canHandle(url : String): Boolean
+  def canHandle(url: String): Boolean
 
   /**
    * Get the custom datatype mapping for the given jdbc meta information.
-   * @param sqlType The sql type (see java.sql.Types)
+   *
+   * @param sqlType  The sql type (see java.sql.Types)
    * @param typeName The sql type name (e.g. "BIGINT UNSIGNED")
-   * @param size The size of the type.
-   * @param md Result metadata associated with this type.
+   * @param size     The size of the type.
+   * @param md       Result metadata associated with this type.
    * @return The actual DataType (subclasses of [[org.apache.spark.sql.types.DataType]])
    *         or null if the default type mapping should be used.
    */
   def getCatalystType(
-    sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = None
+                       sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = None
 
   /**
    * Retrieve the jdbc / sql type for a given datatype.
+   *
    * @param dt The datatype (e.g. [[org.apache.spark.sql.types.StringType]])
    * @return The new JdbcType if there is an override for this DataType
    */
   def getJDBCType(dt: DataType): Option[JdbcType] = None
 
   /**
-   * Quotes the identifier. This is used to put quotes around the identifier in case the column
-   * name is a reserved keyword, or in case it contains characters that require quotes (e.g. space).
-   */
-  def quoteIdentifier(colName: String): String = {
-    s""""$colName""""
-  }
-
-  /**
    * Get the SQL query that should be used to find if the given table exists. Dialects can
    * override this method to return a query that works best in a particular database.
-   * @param table  The name of the table.
+   *
+   * @param table The name of the table.
    * @return The SQL query to use for checking the table.
    */
   def getTableExistsQuery(table: String): String = {
@@ -120,6 +117,7 @@ abstract class JdbcDialect extends Serializable with Logging{
    * ensure that the result set has the same schema as the table, such as by calling
    * "SELECT * ...". Dialects can override this method to return a query that works best in a
    * particular database.
+   *
    * @param table The name of the table.
    * @return The SQL query to use for discovering the schema.
    */
@@ -132,6 +130,7 @@ abstract class JdbcDialect extends Serializable with Logging{
    * The SQL query that should be used to truncate a table. Dialects can override this method to
    * return a query that is suitable for a particular database. For PostgreSQL, for instance,
    * a different query is used to prevent "TRUNCATE" affecting other tables.
+   *
    * @param table The table to truncate
    * @return The SQL query to use for truncating a table
    */
@@ -144,20 +143,30 @@ abstract class JdbcDialect extends Serializable with Logging{
    * The SQL query that should be used to truncate a table. Dialects can override this method to
    * return a query that is suitable for a particular database. For PostgreSQL, for instance,
    * a different query is used to prevent "TRUNCATE" affecting other tables.
-   * @param table The table to truncate
+   *
+   * @param table   The table to truncate
    * @param cascade Whether or not to cascade the truncation
    * @return The SQL query to use for truncating a table
    */
   @Since("2.4.0")
   def getTruncateQuery(
-    table: String,
-    cascade: Option[Boolean] = isCascadingTruncateTable): String = {
-      s"TRUNCATE TABLE $table"
+                        table: String,
+                        cascade: Option[Boolean] = isCascadingTruncateTable): String = {
+    s"TRUNCATE TABLE $table"
   }
+
+  /**
+   * Return Some[true] iff `TRUNCATE TABLE` causes cascading default.
+   * Some[true] : TRUNCATE TABLE causes cascading.
+   * Some[false] : TRUNCATE TABLE does not cause cascading.
+   * None: The behavior of TRUNCATE TABLE is unknown (default).
+   */
+  def isCascadingTruncateTable(): Option[Boolean] = None
 
   /**
    * Override connection specific properties to run before a select is made.  This is in place to
    * allow dialects that need special treatment to optimize behavior.
+   *
    * @param connection The connection object
    * @param properties The connection properties.  This is passed through from the relation.
    */
@@ -165,16 +174,8 @@ abstract class JdbcDialect extends Serializable with Logging{
   }
 
   /**
-   * Escape special characters in SQL string literals.
-   * @param value The string to be escaped.
-   * @return Escaped string.
-   */
-  @Since("2.3.0")
-  protected[jdbc] def escapeSql(value: String): String =
-    if (value == null) null else StringUtils.replace(value, "'", "''")
-
-  /**
    * Converts value to SQL expression.
+   *
    * @param value The value to be converted.
    * @return Converted value.
    */
@@ -193,14 +194,6 @@ abstract class JdbcDialect extends Serializable with Logging{
   }
 
   /**
-   * Return Some[true] iff `TRUNCATE TABLE` causes cascading default.
-   * Some[true] : TRUNCATE TABLE causes cascading.
-   * Some[false] : TRUNCATE TABLE does not cause cascading.
-   * None: The behavior of TRUNCATE TABLE is unknown (default).
-   */
-  def isCascadingTruncateTable(): Option[Boolean] = None
-
-  /**
    * Rename an existing table.
    *
    * @param oldTable The existing table.
@@ -215,13 +208,13 @@ abstract class JdbcDialect extends Serializable with Logging{
    * Alter an existing table.
    *
    * @param tableName The name of the table to be altered.
-   * @param changes Changes to apply to the table.
+   * @param changes   Changes to apply to the table.
    * @return The SQL statements to use for altering the table.
    */
   def alterTable(
-      tableName: String,
-      changes: Seq[TableChange],
-      dbMajorVersion: Int): Array[String] = {
+                  tableName: String,
+                  changes: Seq[TableChange],
+                  dbMajorVersion: Int): Array[String] = {
     val updateClause = ArrayBuilder.make[String]
     for (change <- changes) {
       change match {
@@ -254,26 +247,34 @@ abstract class JdbcDialect extends Serializable with Logging{
     s"ALTER TABLE $tableName ADD COLUMN ${quoteIdentifier(columnName)} $dataType"
 
   def getRenameColumnQuery(
-      tableName: String,
-      columnName: String,
-      newName: String,
-      dbMajorVersion: Int): String =
+                            tableName: String,
+                            columnName: String,
+                            newName: String,
+                            dbMajorVersion: Int): String =
     s"ALTER TABLE $tableName RENAME COLUMN ${quoteIdentifier(columnName)} TO" +
       s" ${quoteIdentifier(newName)}"
+
+  /**
+   * Quotes the identifier. This is used to put quotes around the identifier in case the column
+   * name is a reserved keyword, or in case it contains characters that require quotes (e.g. space).
+   */
+  def quoteIdentifier(colName: String): String = {
+    s""""$colName""""
+  }
 
   def getDeleteColumnQuery(tableName: String, columnName: String): String =
     s"ALTER TABLE $tableName DROP COLUMN ${quoteIdentifier(columnName)}"
 
   def getUpdateColumnTypeQuery(
-      tableName: String,
-      columnName: String,
-      newDataType: String): String =
+                                tableName: String,
+                                columnName: String,
+                                newDataType: String): String =
     s"ALTER TABLE $tableName ALTER COLUMN ${quoteIdentifier(columnName)} $newDataType"
 
   def getUpdateColumnNullabilityQuery(
-      tableName: String,
-      columnName: String,
-      isNullable: Boolean): String = {
+                                       tableName: String,
+                                       columnName: String,
+                                       isNullable: Boolean): String = {
     val nullable = if (isNullable) "NULL" else "NOT NULL"
     s"ALTER TABLE $tableName ALTER COLUMN ${quoteIdentifier(columnName)} SET $nullable"
   }
@@ -299,15 +300,15 @@ abstract class JdbcDialect extends Serializable with Logging{
    * @param columns           the columns on which index to be created
    * @param columnsProperties the properties of the columns on which index to be created
    * @param properties        the properties of the index to be created
-   * @return                  the SQL statement to use for creating the index.
+   * @return the SQL statement to use for creating the index.
    */
   def createIndex(
-      indexName: String,
-      indexType: String,
-      tableName: String,
-      columns: Array[NamedReference],
-      columnsProperties: Array[util.Map[NamedReference, util.Properties]],
-      properties: util.Properties): String = {
+                   indexName: String,
+                   indexType: String,
+                   tableName: String,
+                   columns: Array[NamedReference],
+                   columnsProperties: Array[util.Map[NamedReference, util.Properties]],
+                   properties: util.Properties): String = {
     throw new UnsupportedOperationException("createIndex is not supported")
   }
 
@@ -316,15 +317,15 @@ abstract class JdbcDialect extends Serializable with Logging{
    *
    * @param indexName the name of the index
    * @param tableName the table name on which index to be checked
-   * @param options JDBCOptions of the table
+   * @param options   JDBCOptions of the table
    * @return true if the index with `indexName` exists in the table with `tableName`,
    *         false otherwise
    */
   def indexExists(
-      conn: Connection,
-      indexName: String,
-      tableName: String,
-      options: JDBCOptions): Boolean = {
+                   conn: Connection,
+                   indexName: String,
+                   tableName: String,
+                   options: JDBCOptions): Boolean = {
     throw new UnsupportedOperationException("indexExists is not supported")
   }
 
@@ -333,7 +334,7 @@ abstract class JdbcDialect extends Serializable with Logging{
    *
    * @param indexName the name of the index to be dropped.
    * @param tableName the table name on which index to be dropped.
-  * @return the SQL statement to use for dropping the index.
+   * @return the SQL statement to use for dropping the index.
    */
   def dropIndex(indexName: String, tableName: String): String = {
     throw new UnsupportedOperationException("dropIndex is not supported")
@@ -343,21 +344,32 @@ abstract class JdbcDialect extends Serializable with Logging{
    * Lists all the indexes in this table.
    */
   def listIndexes(
-      conn: Connection,
-      tableName: String,
-      options: JDBCOptions): Array[TableIndex] = {
+                   conn: Connection,
+                   tableName: String,
+                   options: JDBCOptions): Array[TableIndex] = {
     throw new UnsupportedOperationException("listIndexes is not supported")
   }
 
   /**
    * Gets a dialect exception, classifies it and wraps it by `AnalysisException`.
+   *
    * @param message The error message to be placed to the returned exception.
-   * @param e The dialect specific exception.
+   * @param e       The dialect specific exception.
    * @return `AnalysisException` or its sub-class.
    */
   def classifyException(message: String, e: Throwable): AnalysisException = {
     new AnalysisException(message, cause = Some(e))
   }
+
+  /**
+   * Escape special characters in SQL string literals.
+   *
+   * @param value The string to be escaped.
+   * @return Escaped string.
+   */
+  @Since("2.3.0")
+  protected[jdbc] def escapeSql(value: String): String =
+    if (value == null) null else StringUtils.replace(value, "'", "''")
 }
 
 /**
@@ -369,10 +381,12 @@ abstract class JdbcDialect extends Serializable with Logging{
  * overwriting the defaults.
  *
  * @note All new dialects are applied to new jdbc DataFrames only. Make
- * sure to register your dialects first.
+ *       sure to register your dialects first.
  */
 @DeveloperApi
 object JdbcDialects {
+
+  private[this] var dialects = List[JdbcDialect]()
 
   /**
    * Register a dialect for use on all new matching jdbc `org.apache.spark.sql.DataFrame`.
@@ -380,7 +394,7 @@ object JdbcDialects {
    *
    * @param dialect The new dialect.
    */
-  def registerDialect(dialect: JdbcDialect) : Unit = {
+  def registerDialect(dialect: JdbcDialect): Unit = {
     dialects = dialect :: dialects.filterNot(_ == dialect)
   }
 
@@ -389,11 +403,9 @@ object JdbcDialects {
    *
    * @param dialect The jdbc dialect.
    */
-  def unregisterDialect(dialect : JdbcDialect) : Unit = {
+  def unregisterDialect(dialect: JdbcDialect): Unit = {
     dialects = dialects.filterNot(_ == dialect)
   }
-
-  private[this] var dialects = List[JdbcDialect]()
 
   registerDialect(MySQLDialect)
   registerDialect(PostgresDialect)
@@ -421,5 +433,5 @@ object JdbcDialects {
  * NOOP dialect object, always returning the neutral element.
  */
 private object NoopDialect extends JdbcDialect {
-  override def canHandle(url : String): Boolean = true
+  override def canHandle(url: String): Boolean = true
 }

@@ -21,7 +21,8 @@ package org.apache.spark.sql.execution.streaming;
  * This class is an alias of {@link org.apache.spark.sql.connector.read.streaming.Offset}. It's
  * internal and deprecated. New streaming data source implementations should use data source v2 API,
  * which will be supported in the long term.
- *
+ * <p>
  * This class will be removed in a future release.
  */
-public abstract class Offset extends org.apache.spark.sql.connector.read.streaming.Offset {}
+public abstract class Offset extends org.apache.spark.sql.connector.read.streaming.Offset {
+}

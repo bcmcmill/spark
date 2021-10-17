@@ -38,9 +38,9 @@ import org.apache.spark.util.Utils
 import org.apache.spark.util.collection.OpenHashMap
 
 class SQLAppStatusListener(
-    conf: SparkConf,
-    kvstore: ElementTrackingStore,
-    live: Boolean) extends SparkListener with Logging {
+                            conf: SparkConf,
+                            kvstore: ElementTrackingStore,
+                            live: Boolean) extends SparkListener with Logging {
 
   // How often to flush intermediate state of a live execution to the store. When replaying logs,
   // never flush (only do the very last write).
@@ -51,28 +51,6 @@ class SQLAppStatusListener(
   // thread-safe.
   private val liveExecutions = new ConcurrentHashMap[Long, LiveExecutionData]()
   private val stageMetrics = new ConcurrentHashMap[Int, LiveStageMetrics]()
-
-  // Returns true if this listener has no live data. Exposed for tests only.
-  private[sql] def noLiveData(): Boolean = {
-    liveExecutions.isEmpty && stageMetrics.isEmpty
-  }
-
-  kvstore.addTrigger(classOf[SQLExecutionUIData], conf.get[Int](UI_RETAINED_EXECUTIONS)) { count =>
-    cleanupExecutions(count)
-  }
-
-  kvstore.onFlush {
-    if (!live) {
-      val now = System.nanoTime()
-      liveExecutions.values.asScala.foreach { exec =>
-        // This saves the partial aggregated metrics to the store; this works currently because
-        // when the SHS sees an updated event log, all old data for the application is thrown
-        // away.
-        exec.metricsValues = aggregateMetrics(exec)
-        exec.write(kvstore, now)
-      }
-    }
-  }
 
   override def onJobStart(event: SparkListenerJobStart): Unit = {
     val executionIdString = event.properties.getProperty(SQLExecution.EXECUTION_ID_KEY)
@@ -122,6 +100,53 @@ class SQLAppStatusListener(
     update(exec, force = true)
   }
 
+  kvstore.addTrigger(classOf[SQLExecutionUIData], conf.get[Int](UI_RETAINED_EXECUTIONS)) { count =>
+    cleanupExecutions(count)
+  }
+
+  kvstore.onFlush {
+    if (!live) {
+      val now = System.nanoTime()
+      liveExecutions.values.asScala.foreach { exec =>
+        // This saves the partial aggregated metrics to the store; this works currently because
+        // when the SHS sees an updated event log, all old data for the application is thrown
+        // away.
+        exec.metricsValues = aggregateMetrics(exec)
+        exec.write(kvstore, now)
+      }
+    }
+  }
+
+  private def getOrCreateExecution(executionId: Long): LiveExecutionData = {
+    liveExecutions.computeIfAbsent(executionId,
+      (_: Long) => new LiveExecutionData(executionId))
+  }
+
+  private def update(exec: LiveExecutionData, force: Boolean = false): Unit = {
+    val now = System.nanoTime()
+    if (exec.endEvents.get() >= exec.jobs.size + 1) {
+      exec.write(kvstore, now)
+      removeStaleMetricsData(exec)
+      liveExecutions.remove(exec.executionId)
+    } else if (force) {
+      exec.write(kvstore, now)
+    } else if (liveUpdatePeriodNs >= 0) {
+      if (now - exec.lastWriteTime > liveUpdatePeriodNs) {
+        exec.write(kvstore, now)
+      }
+    }
+  }
+
+  private def removeStaleMetricsData(exec: LiveExecutionData): Unit = {
+    // Remove stale LiveStageMetrics objects for stages that are not active anymore.
+    val activeStages = liveExecutions.values().asScala.flatMap { other =>
+      if (other != exec) other.stages else Nil
+    }.toSet
+    stageMetrics.keySet().asScala
+      .filter(!activeStages.contains(_))
+      .foreach(stageMetrics.remove)
+  }
+
   override def onStageSubmitted(event: SparkListenerStageSubmitted): Unit = {
     if (!isSQLStage(event.stageInfo.stageId)) {
       return
@@ -158,6 +183,20 @@ class SQLAppStatusListener(
     }
   }
 
+  private def updateStageMetrics(
+                                  stageId: Int,
+                                  attemptId: Int,
+                                  taskId: Long,
+                                  taskIdx: Int,
+                                  accumUpdates: Seq[AccumulableInfo],
+                                  succeeded: Boolean): Unit = {
+    Option(stageMetrics.get(stageId)).foreach { metrics =>
+      if (metrics.attemptId == attemptId) {
+        metrics.updateTaskMetrics(taskId, taskIdx, succeeded, accumUpdates)
+      }
+    }
+  }
+
   override def onTaskStart(event: SparkListenerTaskStart): Unit = {
     Option(stageMetrics.get(event.stageId)).foreach { stage =>
       if (stage.attemptId == event.stageAttemptId) {
@@ -189,6 +228,12 @@ class SQLAppStatusListener(
     }
     updateStageMetrics(event.stageId, event.stageAttemptId, info.taskId, info.index, accums.toSeq,
       info.successful)
+  }
+
+  private def isSQLStage(stageId: Int): Boolean = {
+    liveExecutions.values().asScala.exists { exec =>
+      exec.stages.contains(stageId)
+    }
   }
 
   def liveExecutionMetrics(executionId: Long): Option[Map[Long, String]] = {
@@ -304,18 +349,18 @@ class SQLAppStatusListener(
     }
   }
 
-  private def updateStageMetrics(
-      stageId: Int,
-      attemptId: Int,
-      taskId: Long,
-      taskIdx: Int,
-      accumUpdates: Seq[AccumulableInfo],
-      succeeded: Boolean): Unit = {
-    Option(stageMetrics.get(stageId)).foreach { metrics =>
-      if (metrics.attemptId == attemptId) {
-        metrics.updateTaskMetrics(taskId, taskIdx, succeeded, accumUpdates)
-      }
-    }
+  override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
+    case e: SparkListenerSQLExecutionStart => onExecutionStart(e)
+    case e: SparkListenerSQLAdaptiveExecutionUpdate => onAdaptiveExecutionUpdate(e)
+    case e: SparkListenerSQLAdaptiveSQLMetricUpdates => onAdaptiveSQLMetricUpdate(e)
+    case e: SparkListenerSQLExecutionEnd => onExecutionEnd(e)
+    case e: SparkListenerDriverAccumUpdates => onDriverAccumUpdates(e)
+    case _ => // Ignore
+  }
+
+  // Returns true if this listener has no live data. Exposed for tests only.
+  private[sql] def noLiveData(): Boolean = {
+    liveExecutions.isEmpty && stageMetrics.isEmpty
   }
 
   private def toStoredNodes(nodes: Seq[SparkPlanGraphNode]): Seq[SparkPlanGraphNodeWrapper] = {
@@ -336,7 +381,7 @@ class SQLAppStatusListener(
 
   private def onExecutionStart(event: SparkListenerSQLExecutionStart): Unit = {
     val SparkListenerSQLExecutionStart(executionId, description, details,
-      physicalPlanDescription, sparkPlanInfo, time) = event
+    physicalPlanDescription, sparkPlanInfo, time) = event
 
     val planGraph = SparkPlanGraph(sparkPlanInfo)
     val sqlPlanMetrics = planGraph.allNodes.flatMap { node =>
@@ -360,7 +405,7 @@ class SQLAppStatusListener(
 
   private def onAdaptiveExecutionUpdate(event: SparkListenerSQLAdaptiveExecutionUpdate): Unit = {
     val SparkListenerSQLAdaptiveExecutionUpdate(
-      executionId, physicalPlanDescription, sparkPlanInfo) = event
+    executionId, physicalPlanDescription, sparkPlanInfo) = event
 
     val planGraph = SparkPlanGraph(sparkPlanInfo)
     val sqlPlanMetrics = planGraph.allNodes.flatMap { node =>
@@ -405,56 +450,11 @@ class SQLAppStatusListener(
     }
   }
 
-  private def removeStaleMetricsData(exec: LiveExecutionData): Unit = {
-    // Remove stale LiveStageMetrics objects for stages that are not active anymore.
-    val activeStages = liveExecutions.values().asScala.flatMap { other =>
-      if (other != exec) other.stages else Nil
-    }.toSet
-    stageMetrics.keySet().asScala
-      .filter(!activeStages.contains(_))
-      .foreach(stageMetrics.remove)
-  }
-
   private def onDriverAccumUpdates(event: SparkListenerDriverAccumUpdates): Unit = {
     val SparkListenerDriverAccumUpdates(executionId, accumUpdates) = event
     Option(liveExecutions.get(executionId)).foreach { exec =>
       exec.driverAccumUpdates = exec.driverAccumUpdates ++ accumUpdates
       update(exec)
-    }
-  }
-
-  override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
-    case e: SparkListenerSQLExecutionStart => onExecutionStart(e)
-    case e: SparkListenerSQLAdaptiveExecutionUpdate => onAdaptiveExecutionUpdate(e)
-    case e: SparkListenerSQLAdaptiveSQLMetricUpdates => onAdaptiveSQLMetricUpdate(e)
-    case e: SparkListenerSQLExecutionEnd => onExecutionEnd(e)
-    case e: SparkListenerDriverAccumUpdates => onDriverAccumUpdates(e)
-    case _ => // Ignore
-  }
-
-  private def getOrCreateExecution(executionId: Long): LiveExecutionData = {
-    liveExecutions.computeIfAbsent(executionId,
-      (_: Long) => new LiveExecutionData(executionId))
-  }
-
-  private def update(exec: LiveExecutionData, force: Boolean = false): Unit = {
-    val now = System.nanoTime()
-    if (exec.endEvents.get() >= exec.jobs.size + 1) {
-      exec.write(kvstore, now)
-      removeStaleMetricsData(exec)
-      liveExecutions.remove(exec.executionId)
-    } else if (force) {
-      exec.write(kvstore, now)
-    } else if (liveUpdatePeriodNs >= 0) {
-      if (now - exec.lastWriteTime > liveUpdatePeriodNs) {
-        exec.write(kvstore, now)
-      }
-    }
-  }
-
-  private def isSQLStage(stageId: Int): Boolean = {
-    liveExecutions.values().asScala.exists { exec =>
-      exec.stages.contains(stageId)
     }
   }
 
@@ -476,22 +476,19 @@ class SQLAppStatusListener(
 
 private class LiveExecutionData(val executionId: Long) extends LiveEntity {
 
+  // Just in case job end and execution end arrive out of order, keep track of how many
+  // end events arrived so that the listener can stop tracking the execution.
+  val endEvents = new AtomicInteger()
   var description: String = null
   var details: String = null
   var physicalPlanDescription: String = null
   var metrics = Seq[SQLPlanMetric]()
   var submissionTime = -1L
   var completionTime: Option[Date] = None
-
   var jobs = Map[Int, JobExecutionStatus]()
   var stages = Set[Int]()
   var driverAccumUpdates = Seq[(Long, Long)]()
-
   @volatile var metricsValues: Map[Long, String] = null
-
-  // Just in case job end and execution end arrive out of order, keep track of how many
-  // end events arrived so that the listener can stop tracking the execution.
-  val endEvents = new AtomicInteger()
 
   override protected def doUpdate(): Any = {
     new SQLExecutionUIData(
@@ -510,10 +507,10 @@ private class LiveExecutionData(val executionId: Long) extends LiveEntity {
 }
 
 private class LiveStageMetrics(
-    val stageId: Int,
-    val attemptId: Int,
-    val numTasks: Int,
-    val accumIdsToMetricType: Map[Long, String]) {
+                                val stageId: Int,
+                                val attemptId: Int,
+                                val numTasks: Int,
+                                val accumIdsToMetricType: Map[Long, String]) {
 
   /**
    * Mapping of task IDs to their respective index. Note this may contain more elements than the
@@ -532,17 +529,13 @@ private class LiveStageMetrics(
    */
   private val taskMetrics = new ConcurrentHashMap[Long, Array[Long]]()
 
-  private val  metricsIdToMaxTaskValue = new ConcurrentHashMap[Long, Array[Long]]()
-
-  def registerTask(taskId: Long, taskIdx: Int): Unit = {
-    taskIndices.update(taskId, taskIdx)
-  }
+  private val metricsIdToMaxTaskValue = new ConcurrentHashMap[Long, Array[Long]]()
 
   def updateTaskMetrics(
-      taskId: Long,
-      eventIdx: Int,
-      finished: Boolean,
-      accumUpdates: Seq[AccumulableInfo]): Unit = {
+                         taskId: Long,
+                         eventIdx: Int,
+                         finished: Boolean,
+                         accumUpdates: Seq[AccumulableInfo]): Unit = {
     val taskIdx = if (eventIdx == SQLAppStatusListener.UNKNOWN_INDEX) {
       if (!taskIndices.contains(taskId)) {
         // We probably missed the start event for the task, just ignore it.
@@ -587,6 +580,10 @@ private class LiveStageMetrics(
     if (finished) {
       completedIndices += taskIdx
     }
+  }
+
+  def registerTask(taskId: Long, taskIdx: Int): Unit = {
+    taskIndices.update(taskId, taskIdx)
   }
 
   def metricValues(): Seq[(Long, Array[Long])] = taskMetrics.asScala.toSeq

@@ -42,12 +42,12 @@ import org.apache.spark.util.Utils
  * Similar to `ArrowPythonRunner`, but exchange data with R worker via Arrow stream.
  */
 class ArrowRRunner(
-    func: Array[Byte],
-    packageNames: Array[Byte],
-    broadcastVars: Array[Broadcast[Object]],
-    schema: StructType,
-    timeZoneId: String,
-    mode: Int)
+                    func: Array[Byte],
+                    packageNames: Array[Byte],
+                    broadcastVars: Array[Broadcast[Object]],
+                    schema: StructType,
+                    timeZoneId: String,
+                    mode: Int)
   extends BaseRRunner[Iterator[InternalRow], ColumnarBatch](
     func,
     "arrow",
@@ -59,23 +59,10 @@ class ArrowRRunner(
     schema.fieldNames,
     mode) {
 
-  protected def bufferedWrite(
-      dataOut: DataOutputStream)(writeFunc: ByteArrayOutputStream => Unit): Unit = {
-    val out = new ByteArrayOutputStream()
-    writeFunc(out)
-
-    // Currently, there looks no way to read batch by batch by socket connection in R side,
-    // See ARROW-4512. Therefore, it writes the whole Arrow streaming-formatted binary at
-    // once for now.
-    val data = out.toByteArray
-    dataOut.writeInt(data.length)
-    dataOut.write(data)
-  }
-
   protected override def newWriterThread(
-      output: OutputStream,
-      inputIterator: Iterator[Iterator[InternalRow]],
-      partitionIndex: Int): WriterThread = {
+                                          output: OutputStream,
+                                          inputIterator: Iterator[Iterator[InternalRow]],
+                                          partitionIndex: Int): WriterThread = {
     new WriterThread(output, inputIterator, partitionIndex) {
 
       /**
@@ -118,8 +105,21 @@ class ArrowRRunner(
     }
   }
 
+  protected def bufferedWrite(
+                               dataOut: DataOutputStream)(writeFunc: ByteArrayOutputStream => Unit): Unit = {
+    val out = new ByteArrayOutputStream()
+    writeFunc(out)
+
+    // Currently, there looks no way to read batch by batch by socket connection in R side,
+    // See ARROW-4512. Therefore, it writes the whole Arrow streaming-formatted binary at
+    // once for now.
+    val data = out.toByteArray
+    dataOut.writeInt(data.length)
+    dataOut.write(data)
+  }
+
   protected override def newReaderIterator(
-      dataStream: DataInputStream, errThread: BufferedStreamThread): ReaderIterator = {
+                                            dataStream: DataInputStream, errThread: BufferedStreamThread): ReaderIterator = {
     new ReaderIterator(dataStream, errThread) {
       private val allocator = ArrowUtils.rootAllocator.newChildAllocator(
         "stdin reader for R", 0, Long.MaxValue)

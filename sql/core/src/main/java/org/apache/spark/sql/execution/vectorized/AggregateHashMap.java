@@ -30,7 +30,7 @@ import static org.apache.spark.sql.types.DataTypes.LongType;
  * map that can act as a 'cache' for extremely fast key-value lookups while evaluating aggregates
  * (and fall back to the `BytesToBytesMap` if a given key isn't found). This can be potentially
  * 'codegened' in HashAggregate to speed up aggregates w/ key.
- *
+ * <p>
  * It is backed by a power-of-2-sized array for index lookups and a columnar batch that stores the
  * key-value pairs. The index lookups in the array rely on linear probing (with a small number of
  * maximum tries) and use an inexpensive hash function which makes it really efficient for a
@@ -40,73 +40,72 @@ import static org.apache.spark.sql.types.DataTypes.LongType;
  */
 public class AggregateHashMap {
 
-  private OnHeapColumnVector[] columnVectors;
-  private MutableColumnarRow aggBufferRow;
-  private int[] buckets;
-  private int numBuckets;
-  private int numRows = 0;
-  private int maxSteps = 3;
+    private static int DEFAULT_CAPACITY = 1 << 16;
+    private static double DEFAULT_LOAD_FACTOR = 0.25;
+    private static int DEFAULT_MAX_STEPS = 3;
+    private OnHeapColumnVector[] columnVectors;
+    private MutableColumnarRow aggBufferRow;
+    private int[] buckets;
+    private int numBuckets;
+    private int numRows = 0;
+    private int maxSteps = 3;
 
-  private static int DEFAULT_CAPACITY = 1 << 16;
-  private static double DEFAULT_LOAD_FACTOR = 0.25;
-  private static int DEFAULT_MAX_STEPS = 3;
+    public AggregateHashMap(StructType schema, int capacity, double loadFactor, int maxSteps) {
 
-  public AggregateHashMap(StructType schema, int capacity, double loadFactor, int maxSteps) {
+        // We currently only support single key-value pair that are both longs
+        assert (schema.size() == 2 && schema.fields()[0].dataType() == LongType &&
+                schema.fields()[1].dataType() == LongType);
 
-    // We currently only support single key-value pair that are both longs
-    assert (schema.size() == 2 && schema.fields()[0].dataType() == LongType &&
-        schema.fields()[1].dataType() == LongType);
+        // capacity should be a power of 2
+        assert (capacity > 0 && ((capacity & (capacity - 1)) == 0));
 
-    // capacity should be a power of 2
-    assert (capacity > 0 && ((capacity & (capacity - 1)) == 0));
-
-    this.maxSteps = maxSteps;
-    numBuckets = (int) (capacity / loadFactor);
-    columnVectors = OnHeapColumnVector.allocateColumns(capacity, schema);
-    aggBufferRow = new MutableColumnarRow(columnVectors);
-    buckets = new int[numBuckets];
-    Arrays.fill(buckets, -1);
-  }
-
-  public AggregateHashMap(StructType schema) {
-    this(schema, DEFAULT_CAPACITY, DEFAULT_LOAD_FACTOR, DEFAULT_MAX_STEPS);
-  }
-
-  public MutableColumnarRow findOrInsert(long key) {
-    int idx = find(key);
-    if (idx != -1 && buckets[idx] == -1) {
-      columnVectors[0].putLong(numRows, key);
-      columnVectors[1].putLong(numRows, 0);
-      buckets[idx] = numRows++;
+        this.maxSteps = maxSteps;
+        numBuckets = (int) (capacity / loadFactor);
+        columnVectors = OnHeapColumnVector.allocateColumns(capacity, schema);
+        aggBufferRow = new MutableColumnarRow(columnVectors);
+        buckets = new int[numBuckets];
+        Arrays.fill(buckets, -1);
     }
-    aggBufferRow.rowId = buckets[idx];
-    return aggBufferRow;
-  }
 
-  @VisibleForTesting
-  public int find(long key) {
-    long h = hash(key);
-    int step = 0;
-    int idx = (int) h & (numBuckets - 1);
-    while (step < maxSteps) {
-      // Return bucket index if it's either an empty slot or already contains the key
-      if (buckets[idx] == -1) {
-        return idx;
-      } else if (equals(idx, key)) {
-        return idx;
-      }
-      idx = (idx + 1) & (numBuckets - 1);
-      step++;
+    public AggregateHashMap(StructType schema) {
+        this(schema, DEFAULT_CAPACITY, DEFAULT_LOAD_FACTOR, DEFAULT_MAX_STEPS);
     }
-    // Didn't find it
-    return -1;
-  }
 
-  private long hash(long key) {
-    return key;
-  }
+    public MutableColumnarRow findOrInsert(long key) {
+        int idx = find(key);
+        if (idx != -1 && buckets[idx] == -1) {
+            columnVectors[0].putLong(numRows, key);
+            columnVectors[1].putLong(numRows, 0);
+            buckets[idx] = numRows++;
+        }
+        aggBufferRow.rowId = buckets[idx];
+        return aggBufferRow;
+    }
 
-  private boolean equals(int idx, long key1) {
-    return columnVectors[0].getLong(buckets[idx]) == key1;
-  }
+    @VisibleForTesting
+    public int find(long key) {
+        long h = hash(key);
+        int step = 0;
+        int idx = (int) h & (numBuckets - 1);
+        while (step < maxSteps) {
+            // Return bucket index if it's either an empty slot or already contains the key
+            if (buckets[idx] == -1) {
+                return idx;
+            } else if (equals(idx, key)) {
+                return idx;
+            }
+            idx = (idx + 1) & (numBuckets - 1);
+            step++;
+        }
+        // Didn't find it
+        return -1;
+    }
+
+    private long hash(long key) {
+        return key;
+    }
+
+    private boolean equals(int idx, long key1) {
+        return columnVectors[0].getLong(buckets[idx]) == key1;
+    }
 }

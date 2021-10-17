@@ -33,15 +33,8 @@ private case object OracleDialect extends JdbcDialect {
   override def canHandle(url: String): Boolean =
     url.toLowerCase(Locale.ROOT).startsWith("jdbc:oracle")
 
-  private def supportTimeZoneTypes: Boolean = {
-    val timeZone = DateTimeUtils.getTimeZone(SQLConf.get.sessionLocalTimeZone)
-    // TODO: support timezone types when users are not using the JVM timezone, which
-    // is the default value of SESSION_LOCAL_TIMEZONE
-    timeZone == TimeZone.getDefault
-  }
-
   override def getCatalystType(
-      sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
+                                sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
     sqlType match {
       case Types.NUMERIC =>
         val scale = if (null != md) md.build().getLong("scale") else 0L
@@ -61,11 +54,18 @@ private case object OracleDialect extends JdbcDialect {
           case _ => None
         }
       case TIMESTAMPTZ if supportTimeZoneTypes
-        => Some(TimestampType) // Value for Timestamp with Time Zone in Oracle
+      => Some(TimestampType) // Value for Timestamp with Time Zone in Oracle
       case BINARY_FLOAT => Some(FloatType) // Value for OracleTypes.BINARY_FLOAT
       case BINARY_DOUBLE => Some(DoubleType) // Value for OracleTypes.BINARY_DOUBLE
       case _ => None
     }
+  }
+
+  private def supportTimeZoneTypes: Boolean = {
+    val timeZone = DateTimeUtils.getTimeZone(SQLConf.get.sessionLocalTimeZone)
+    // TODO: support timezone types when users are not using the JVM timezone, which
+    // is the default value of SESSION_LOCAL_TIMEZONE
+    timeZone == TimeZone.getDefault
   }
 
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
@@ -99,14 +99,15 @@ private case object OracleDialect extends JdbcDialect {
 
   /**
    * The SQL query used to truncate a table.
-   * @param table The table to truncate
+   *
+   * @param table   The table to truncate
    * @param cascade Whether or not to cascade the truncation. Default value is the
    *                value of isCascadingTruncateTable()
    * @return The SQL query to use for truncating a table
    */
   override def getTruncateQuery(
-      table: String,
-      cascade: Option[Boolean] = isCascadingTruncateTable): String = {
+                                 table: String,
+                                 cascade: Option[Boolean] = isCascadingTruncateTable): String = {
     cascade match {
       case Some(true) => s"TRUNCATE TABLE $table CASCADE"
       case _ => s"TRUNCATE TABLE $table"
@@ -115,22 +116,22 @@ private case object OracleDialect extends JdbcDialect {
 
   // see https://docs.oracle.com/cd/B28359_01/server.111/b28286/statements_3001.htm#SQLRF01001
   override def getAddColumnQuery(
-      tableName: String,
-      columnName: String,
-      dataType: String): String =
+                                  tableName: String,
+                                  columnName: String,
+                                  dataType: String): String =
     s"ALTER TABLE $tableName ADD ${quoteIdentifier(columnName)} $dataType"
 
   // see https://docs.oracle.com/cd/B28359_01/server.111/b28286/statements_3001.htm#SQLRF01001
   override def getUpdateColumnTypeQuery(
-    tableName: String,
-    columnName: String,
-    newDataType: String): String =
+                                         tableName: String,
+                                         columnName: String,
+                                         newDataType: String): String =
     s"ALTER TABLE $tableName MODIFY ${quoteIdentifier(columnName)} $newDataType"
 
   override def getUpdateColumnNullabilityQuery(
-    tableName: String,
-    columnName: String,
-    isNullable: Boolean): String = {
+                                                tableName: String,
+                                                columnName: String,
+                                                isNullable: Boolean): String = {
     val nullable = if (isNullable) "NULL" else "NOT NULL"
     s"ALTER TABLE $tableName MODIFY ${quoteIdentifier(columnName)} $nullable"
   }

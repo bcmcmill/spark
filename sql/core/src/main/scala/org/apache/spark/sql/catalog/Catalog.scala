@@ -101,7 +101,7 @@ abstract class Catalog {
   /**
    * Returns a list of columns for the given table/view in the specified database.
    *
-   * @param dbName is a name that designates a database.
+   * @param dbName    is a name that designates a database.
    * @param tableName is an unqualified name that designates a table/view.
    * @since 2.0.0
    */
@@ -154,7 +154,7 @@ abstract class Catalog {
    * Get the function with the specified name. This throws an AnalysisException when the function
    * cannot be found.
    *
-   * @param dbName is a name that designates a database.
+   * @param dbName       is a name that designates a database.
    * @param functionName is an unqualified name that designates a function in the specified database
    * @since 2.1.0
    */
@@ -182,7 +182,7 @@ abstract class Catalog {
   /**
    * Check if the table or view with the specified name exists in the specified database.
    *
-   * @param dbName is a name that designates a database.
+   * @param dbName    is a name that designates a database.
    * @param tableName is an unqualified name that designates a table.
    * @since 2.1.0
    */
@@ -202,7 +202,7 @@ abstract class Catalog {
   /**
    * Check if the function with the specified name exists in the specified database.
    *
-   * @param dbName is a name that designates a database.
+   * @param dbName       is a name that designates a database.
    * @param functionName is an unqualified name that designates a function.
    * @since 2.1.0
    */
@@ -269,9 +269,9 @@ abstract class Catalog {
    */
   @deprecated("use createTable instead.", "2.2.0")
   def createExternalTable(
-      tableName: String,
-      source: String,
-      options: java.util.Map[String, String]): DataFrame = {
+                           tableName: String,
+                           source: String,
+                           options: java.util.Map[String, String]): DataFrame = {
     createTable(tableName, source, options)
   }
 
@@ -285,9 +285,9 @@ abstract class Catalog {
    * @since 2.2.0
    */
   def createTable(
-      tableName: String,
-      source: String,
-      options: java.util.Map[String, String]): DataFrame = {
+                   tableName: String,
+                   source: String,
+                   options: java.util.Map[String, String]): DataFrame = {
     createTable(tableName, source, options.asScala.toMap)
   }
 
@@ -303,9 +303,9 @@ abstract class Catalog {
    */
   @deprecated("use createTable instead.", "2.2.0")
   def createExternalTable(
-      tableName: String,
-      source: String,
-      options: Map[String, String]): DataFrame = {
+                           tableName: String,
+                           source: String,
+                           options: Map[String, String]): DataFrame = {
     createTable(tableName, source, options)
   }
 
@@ -320,9 +320,9 @@ abstract class Catalog {
    * @since 2.2.0
    */
   def createTable(
-      tableName: String,
-      source: String,
-      options: Map[String, String]): DataFrame
+                   tableName: String,
+                   source: String,
+                   options: Map[String, String]): DataFrame
 
   /**
    * Create a table from the given path based on a data source, a schema and a set of options.
@@ -335,11 +335,28 @@ abstract class Catalog {
    */
   @deprecated("use createTable instead.", "2.2.0")
   def createExternalTable(
-      tableName: String,
-      source: String,
-      schema: StructType,
-      options: java.util.Map[String, String]): DataFrame = {
+                           tableName: String,
+                           source: String,
+                           schema: StructType,
+                           options: java.util.Map[String, String]): DataFrame = {
     createTable(tableName, source, schema, options)
+  }
+
+  /**
+   * Create a table based on the dataset in a data source, a schema and a set of options.
+   * Then, returns the corresponding DataFrame.
+   *
+   * @param tableName is either a qualified or unqualified name that designates a table.
+   *                  If no database identifier is provided, it refers to a table in
+   *                  the current database.
+   * @since 2.2.0
+   */
+  def createTable(
+                   tableName: String,
+                   source: String,
+                   schema: StructType,
+                   options: java.util.Map[String, String]): DataFrame = {
+    createTable(tableName, source, schema, options.asScala.toMap)
   }
 
   /**
@@ -352,10 +369,10 @@ abstract class Catalog {
    * @since 3.1.0
    */
   def createTable(
-      tableName: String,
-      source: String,
-      description: String,
-      options: java.util.Map[String, String]): DataFrame = {
+                   tableName: String,
+                   source: String,
+                   description: String,
+                   options: java.util.Map[String, String]): DataFrame = {
     createTable(
       tableName,
       source = source,
@@ -375,27 +392,10 @@ abstract class Catalog {
    * @since 3.1.0
    */
   def createTable(
-      tableName: String,
-      source: String,
-      description: String,
-      options: Map[String, String]): DataFrame
-
-  /**
-   * Create a table based on the dataset in a data source, a schema and a set of options.
-   * Then, returns the corresponding DataFrame.
-   *
-   * @param tableName is either a qualified or unqualified name that designates a table.
-   *                  If no database identifier is provided, it refers to a table in
-   *                  the current database.
-   * @since 2.2.0
-   */
-  def createTable(
-      tableName: String,
-      source: String,
-      schema: StructType,
-      options: java.util.Map[String, String]): DataFrame = {
-    createTable(tableName, source, schema, options.asScala.toMap)
-  }
+                   tableName: String,
+                   source: String,
+                   description: String,
+                   options: Map[String, String]): DataFrame
 
   /**
    * (Scala-specific)
@@ -409,10 +409,10 @@ abstract class Catalog {
    */
   @deprecated("use createTable instead.", "2.2.0")
   def createExternalTable(
-      tableName: String,
-      source: String,
-      schema: StructType,
-      options: Map[String, String]): DataFrame = {
+                           tableName: String,
+                           source: String,
+                           schema: StructType,
+                           options: Map[String, String]): DataFrame = {
     createTable(tableName, source, schema, options)
   }
 
@@ -427,10 +427,10 @@ abstract class Catalog {
    * @since 2.2.0
    */
   def createTable(
-      tableName: String,
-      source: String,
-      schema: StructType,
-      options: Map[String, String]): DataFrame
+                   tableName: String,
+                   source: String,
+                   schema: StructType,
+                   options: Map[String, String]): DataFrame
 
   /**
    * Create a table based on the dataset in a data source, a schema and a set of options.
@@ -442,11 +442,11 @@ abstract class Catalog {
    * @since 3.1.0
    */
   def createTable(
-      tableName: String,
-      source: String,
-      schema: StructType,
-      description: String,
-      options: java.util.Map[String, String]): DataFrame = {
+                   tableName: String,
+                   source: String,
+                   schema: StructType,
+                   description: String,
+                   options: java.util.Map[String, String]): DataFrame = {
     createTable(
       tableName,
       source = source,
@@ -467,11 +467,11 @@ abstract class Catalog {
    * @since 3.1.0
    */
   def createTable(
-      tableName: String,
-      source: String,
-      schema: StructType,
-      description: String,
-      options: Map[String, String]): DataFrame
+                   tableName: String,
+                   source: String,
+                   schema: StructType,
+                   description: String,
+                   options: Map[String, String]): DataFrame
 
   /**
    * Drops the local temporary view with the given view name in the catalog.
@@ -539,9 +539,9 @@ abstract class Catalog {
   /**
    * Caches the specified table with the given storage level.
    *
-   * @param tableName is either a qualified or unqualified name that designates a table/view.
-   *                  If no database identifier is provided, it refers to a temporary view or
-   *                  a table/view in the current database.
+   * @param tableName    is either a qualified or unqualified name that designates a table/view.
+   *                     If no database identifier is provided, it refers to a temporary view or
+   *                     a table/view in the current database.
    * @param storageLevel storage level to cache table.
    * @since 2.3.0
    */

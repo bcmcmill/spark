@@ -22,13 +22,13 @@ package org.apache.spark.sql.execution.vectorized;
  */
 public interface Dictionary {
 
-  int decodeToInt(int id);
+    int decodeToInt(int id);
 
-  long decodeToLong(int id);
+    long decodeToLong(int id);
 
-  float decodeToFloat(int id);
+    float decodeToFloat(int id);
 
-  double decodeToDouble(int id);
+    double decodeToDouble(int id);
 
-  byte[] decodeToBinary(int id);
+    byte[] decodeToBinary(int id);
 }

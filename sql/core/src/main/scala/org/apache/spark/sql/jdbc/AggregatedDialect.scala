@@ -30,11 +30,11 @@ private class AggregatedDialect(dialects: List[JdbcDialect]) extends JdbcDialect
 
   require(dialects.nonEmpty)
 
-  override def canHandle(url : String): Boolean =
+  override def canHandle(url: String): Boolean =
     dialects.map(_.canHandle(url)).reduce(_ && _)
 
   override def getCatalystType(
-      sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
+                                sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
     dialects.flatMap(_.getCatalystType(sqlType, typeName, size, md)).headOption
   }
 
@@ -66,14 +66,15 @@ private class AggregatedDialect(dialects: List[JdbcDialect]) extends JdbcDialect
 
   /**
    * The SQL query used to truncate a table.
-   * @param table The table to truncate.
+   *
+   * @param table   The table to truncate.
    * @param cascade Whether or not to cascade the truncation. Default value is the
    *                value of isCascadingTruncateTable()
    * @return The SQL query to use for truncating a table
    */
   override def getTruncateQuery(
-      table: String,
-      cascade: Option[Boolean] = isCascadingTruncateTable): String = {
+                                 table: String,
+                                 cascade: Option[Boolean] = isCascadingTruncateTable): String = {
     dialects.head.getTruncateQuery(table, cascade)
   }
 }

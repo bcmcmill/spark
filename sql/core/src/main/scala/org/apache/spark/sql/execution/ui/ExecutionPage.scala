@@ -46,10 +46,15 @@ class ExecutionPage(parent: SQLTab) extends WebUIPage("execution") with Logging 
         }
         if (jobs.nonEmpty) {
           <li class="job-url">
-            <strong>{label} </strong>
-            {jobs.toSeq.sorted.map { jobId =>
-              <a href={jobURL(request, jobId.intValue())}>{jobId.toString}</a><span>&nbsp;</span>
-            }}
+            <strong>
+              {label}
+            </strong>{jobs.toSeq.sorted.map { jobId =>
+            <a href={jobURL(request, jobId.intValue())}>
+              {jobId.toString}
+            </a> <span>
+              &nbsp;
+            </span>
+          }}
           </li>
         } else {
           Nil
@@ -61,20 +66,17 @@ class ExecutionPage(parent: SQLTab) extends WebUIPage("execution") with Logging 
         <div>
           <ul class="list-unstyled">
             <li>
-              <strong>Submitted Time: </strong>{UIUtils.formatDate(executionUIData.submissionTime)}
+              <strong>Submitted Time:</strong>{UIUtils.formatDate(executionUIData.submissionTime)}
             </li>
             <li>
-              <strong>Duration: </strong>{UIUtils.formatDuration(duration)}
-            </li>
-            {jobLinks(JobExecutionStatus.RUNNING, "Running Jobs:")}
-            {jobLinks(JobExecutionStatus.SUCCEEDED, "Succeeded Jobs:")}
-            {jobLinks(JobExecutionStatus.FAILED, "Failed Jobs:")}
+              <strong>Duration:</strong>{UIUtils.formatDuration(duration)}
+            </li>{jobLinks(JobExecutionStatus.RUNNING, "Running Jobs:")}{jobLinks(JobExecutionStatus.SUCCEEDED, "Succeeded Jobs:")}{jobLinks(JobExecutionStatus.FAILED, "Failed Jobs:")}
           </ul>
         </div>
-        <div>
-          <input type="checkbox" id="stageId-and-taskId-checkbox"></input>
-          <span>Show the Stage ID and Task ID that corresponds to the max metric</span>
-        </div>
+          <div>
+            <input type="checkbox" id="stageId-and-taskId-checkbox"></input>
+            <span>Show the Stage ID and Task ID that corresponds to the max metric</span>
+          </div>
 
       val metrics = sqlStore.executionMetrics(executionId)
       val graph = sqlStore.planGraph(executionId)
@@ -83,31 +85,24 @@ class ExecutionPage(parent: SQLTab) extends WebUIPage("execution") with Logging 
         planVisualization(request, metrics, graph) ++
         physicalPlanDescription(executionUIData.physicalPlanDescription)
     }.getOrElse {
-      <div>No information to display for query {executionId}</div>
+      <div>No information to display for query
+        {executionId}
+      </div>
     }
 
     UIUtils.headerSparkPage(
       request, s"Details for Query $executionId", content, parent)
   }
 
-
-  private def planVisualizationResources(request: HttpServletRequest): Seq[Node] = {
-    // scalastyle:off
-    <link rel="stylesheet" href={UIUtils.prependBaseUri(request, "/static/sql/spark-sql-viz.css")} type="text/css"/>
-    <script src={UIUtils.prependBaseUri(request, "/static/d3.min.js")}></script>
-    <script src={UIUtils.prependBaseUri(request, "/static/dagre-d3.min.js")}></script>
-    <script src={UIUtils.prependBaseUri(request, "/static/graphlib-dot.min.js")}></script>
-    <script src={UIUtils.prependBaseUri(request, "/static/sql/spark-sql-viz.js")}></script>
-    // scalastyle:on
-  }
-
   private def planVisualization(
-      request: HttpServletRequest,
-      metrics: Map[Long, String],
-      graph: SparkPlanGraph): Seq[Node] = {
+                                 request: HttpServletRequest,
+                                 metrics: Map[Long, String],
+                                 graph: SparkPlanGraph): Seq[Node] = {
     val metadata = graph.allNodes.flatMap { node =>
       val nodeId = s"plan-meta-data-${node.id}"
-      <div id={nodeId}>{node.desc}</div>
+      <div id={nodeId}>
+        {node.desc}
+      </div>
     }
 
     <div>
@@ -116,12 +111,21 @@ class ExecutionPage(parent: SQLTab) extends WebUIPage("execution") with Logging 
         <div class="dot-file">
           {graph.makeDotFile(metrics)}
         </div>
-        <div id="plan-viz-metadata-size">{graph.allNodes.size.toString}</div>
-        {metadata}
-      </div>
-      {planVisualizationResources(request)}
-      <script>$(function() {{ if (shouldRenderPlanViz()) {{ renderPlanViz(); }} }})</script>
+        <div id="plan-viz-metadata-size">
+          {graph.allNodes.size.toString}
+        </div>{metadata}
+      </div>{planVisualizationResources(request)}<script>$(function() {{ if (shouldRenderPlanViz()) {{ renderPlanViz(); }} }})</script>
     </div>
+  }
+
+  private def planVisualizationResources(request: HttpServletRequest): Seq[Node] = {
+    // scalastyle:off
+      <link rel="stylesheet" href={UIUtils.prependBaseUri(request, "/static/sql/spark-sql-viz.css")} type="text/css"/>
+      <script src={UIUtils.prependBaseUri(request, "/static/d3.min.js")}></script>
+      <script src={UIUtils.prependBaseUri(request, "/static/dagre-d3.min.js")}></script>
+      <script src={UIUtils.prependBaseUri(request, "/static/graphlib-dot.min.js")}></script>
+      <script src={UIUtils.prependBaseUri(request, "/static/sql/spark-sql-viz.js")}></script>
+    // scalastyle:on
   }
 
   private def jobURL(request: HttpServletRequest, jobId: Long): String =
@@ -134,15 +138,17 @@ class ExecutionPage(parent: SQLTab) extends WebUIPage("execution") with Logging 
         <a>Details</a>
       </span>
     </div>
-    <div id="physical-plan-details" style="display: none;">
-      <pre>{physicalPlanDescription}</pre>
-    </div>
-    <script>
-      function clickPhysicalPlanDetails() {{
+      <div id="physical-plan-details" style="display: none;">
+        <pre>
+          {physicalPlanDescription}
+        </pre>
+      </div>
+      <script>
+        function clickPhysicalPlanDetails() {{
         $('#physical-plan-details').toggle();
         $('#physical-plan-details-arrow').toggleClass('arrow-open').toggleClass('arrow-closed');
-      }}
-    </script>
-    <br/>
+        }}
+      </script>
+        <br/>
   }
 }

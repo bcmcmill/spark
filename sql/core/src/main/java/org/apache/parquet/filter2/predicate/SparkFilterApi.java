@@ -31,27 +31,27 @@ import org.apache.parquet.filter2.predicate.Operators.LongColumn;
  * TODO (PARQUET-1809): This is a temporary workaround; it is intended to be moved to Parquet.
  */
 public final class SparkFilterApi {
-  public static IntColumn intColumn(String[] path) {
-    return new IntColumn(ColumnPath.get(path));
-  }
+    public static IntColumn intColumn(String[] path) {
+        return new IntColumn(ColumnPath.get(path));
+    }
 
-  public static LongColumn longColumn(String[] path) {
-    return new LongColumn(ColumnPath.get(path));
-  }
+    public static LongColumn longColumn(String[] path) {
+        return new LongColumn(ColumnPath.get(path));
+    }
 
-  public static FloatColumn floatColumn(String[] path) {
-    return new FloatColumn(ColumnPath.get(path));
-  }
+    public static FloatColumn floatColumn(String[] path) {
+        return new FloatColumn(ColumnPath.get(path));
+    }
 
-  public static DoubleColumn doubleColumn(String[] path) {
-    return new DoubleColumn(ColumnPath.get(path));
-  }
+    public static DoubleColumn doubleColumn(String[] path) {
+        return new DoubleColumn(ColumnPath.get(path));
+    }
 
-  public static BooleanColumn booleanColumn(String[] path) {
-    return new BooleanColumn(ColumnPath.get(path));
-  }
+    public static BooleanColumn booleanColumn(String[] path) {
+        return new BooleanColumn(ColumnPath.get(path));
+    }
 
-  public static BinaryColumn binaryColumn(String[] path) {
-    return new BinaryColumn(ColumnPath.get(path));
-  }
+    public static BinaryColumn binaryColumn(String[] path) {
+        return new BinaryColumn(ColumnPath.get(path));
+    }
 }

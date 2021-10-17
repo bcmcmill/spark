@@ -25,7 +25,7 @@ import org.apache.spark.sql.sources.TableScan;
 /**
  * A trait that should be implemented by V1 DataSources that would like to leverage the DataSource
  * V2 read code paths.
- *
+ * <p>
  * This interface is designed to provide Spark DataSources time to migrate to DataSource V2 and
  * will be removed in a future Spark release.
  *
@@ -34,10 +34,10 @@ import org.apache.spark.sql.sources.TableScan;
 @Unstable
 public interface V1Scan extends Scan {
 
-  /**
-   * Create an `BaseRelation` with `TableScan` that can scan data from DataSource v1 to RDD[Row].
-   *
-   * @since 3.0.0
-   */
-  <T extends BaseRelation & TableScan> T toV1TableScan(SQLContext context);
+    /**
+     * Create an `BaseRelation` with `TableScan` that can scan data from DataSource v1 to RDD[Row].
+     *
+     * @since 3.0.0
+     */
+    <T extends BaseRelation & TableScan> T toV1TableScan(SQLContext context);
 }

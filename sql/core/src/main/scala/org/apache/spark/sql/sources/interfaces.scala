@@ -70,7 +70,7 @@ trait RelationProvider {
    * Returns a new base relation with the given parameters.
    *
    * @note The parameters' keywords are case insensitive and this insensitivity is enforced
-   * by the Map that is passed to the function.
+   *       by the Map that is passed to the function.
    */
   def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation
 }
@@ -101,12 +101,12 @@ trait SchemaRelationProvider {
    * Returns a new base relation with the given parameters and user defined schema.
    *
    * @note The parameters' keywords are case insensitive and this insensitivity is enforced
-   * by the Map that is passed to the function.
+   *       by the Map that is passed to the function.
    */
   def createRelation(
-      sqlContext: SQLContext,
-      parameters: Map[String, String],
-      schema: StructType): BaseRelation
+                      sqlContext: SQLContext,
+                      parameters: Map[String, String],
+                      schema: StructType): BaseRelation
 }
 
 /**
@@ -120,23 +120,24 @@ trait StreamSourceProvider {
 
   /**
    * Returns the name and schema of the source that can be used to continually read data.
+   *
    * @since 2.0.0
    */
   def sourceSchema(
-      sqlContext: SQLContext,
-      schema: Option[StructType],
-      providerName: String,
-      parameters: Map[String, String]): (String, StructType)
+                    sqlContext: SQLContext,
+                    schema: Option[StructType],
+                    providerName: String,
+                    parameters: Map[String, String]): (String, StructType)
 
   /**
    * @since 2.0.0
    */
   def createSource(
-      sqlContext: SQLContext,
-      metadataPath: String,
-      schema: Option[StructType],
-      providerName: String,
-      parameters: Map[String, String]): Source
+                    sqlContext: SQLContext,
+                    metadataPath: String,
+                    schema: Option[StructType],
+                    providerName: String,
+                    parameters: Map[String, String]): Source
 }
 
 /**
@@ -148,10 +149,10 @@ trait StreamSourceProvider {
 @Unstable
 trait StreamSinkProvider {
   def createSink(
-      sqlContext: SQLContext,
-      parameters: Map[String, String],
-      partitionColumns: Seq[String],
-      outputMode: OutputMode): Sink
+                  sqlContext: SQLContext,
+                  parameters: Map[String, String],
+                  partitionColumns: Seq[String],
+                  outputMode: OutputMode): Sink
 }
 
 /**
@@ -163,18 +164,17 @@ trait CreatableRelationProvider {
    * Saves a DataFrame to a destination (using data source-specific parameters)
    *
    * @param sqlContext SQLContext
-   * @param mode specifies what happens when the destination already exists
+   * @param mode       specifies what happens when the destination already exists
    * @param parameters data source-specific parameters
-   * @param data DataFrame to save (i.e. the rows after executing the query)
+   * @param data       DataFrame to save (i.e. the rows after executing the query)
    * @return Relation with a known schema
-   *
    * @since 1.3.0
    */
   def createRelation(
-      sqlContext: SQLContext,
-      mode: SaveMode,
-      parameters: Map[String, String],
-      data: DataFrame): BaseRelation
+                      sqlContext: SQLContext,
+                      mode: SaveMode,
+                      parameters: Map[String, String],
+                      data: DataFrame): BaseRelation
 }
 
 /**
@@ -192,6 +192,7 @@ trait CreatableRelationProvider {
 @Stable
 abstract class BaseRelation {
   def sqlContext: SQLContext
+
   def schema: StructType
 
   /**
@@ -202,22 +203,20 @@ abstract class BaseRelation {
    * and thus should not perform expensive operations for each invocation.
    *
    * @note It is always better to overestimate size than underestimate, because underestimation
-   * could lead to execution plans that are suboptimal (i.e. broadcasting a very large table).
-   *
+   *       could lead to execution plans that are suboptimal (i.e. broadcasting a very large table).
    * @since 1.3.0
    */
   def sizeInBytes: Long = sqlContext.conf.defaultSizeInBytes
 
   /**
    * Whether does it need to convert the objects in Row to internal representation, for example:
-   *  java.lang.String to UTF8String
-   *  java.lang.Decimal to Decimal
+   * java.lang.String to UTF8String
+   * java.lang.Decimal to Decimal
    *
    * If `needConversion` is `false`, buildScan() should return an `RDD` of `InternalRow`
    *
    * @note The internal representation is not stable across releases and thus data sources outside
-   * of Spark SQL should leave this as true.
-   *
+   *       of Spark SQL should leave this as true.
    * @since 1.4.0
    */
   def needConversion: Boolean = true

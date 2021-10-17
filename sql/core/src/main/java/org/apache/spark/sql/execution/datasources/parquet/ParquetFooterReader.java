@@ -34,23 +34,23 @@ import java.io.IOException;
  * methods of reading parquet file footer
  */
 public class ParquetFooterReader {
-  public static ParquetMetadata readFooter(Configuration configuration,
-      Path file, ParquetMetadataConverter.MetadataFilter filter) throws IOException {
-    return readFooter(HadoopInputFile.fromPath(file, configuration), filter);
-  }
-
-  public static ParquetMetadata readFooter(Configuration configuration,
-      FileStatus fileStatus, ParquetMetadataConverter.MetadataFilter filter) throws IOException {
-    return readFooter(HadoopInputFile.fromStatus(fileStatus, configuration), filter);
-  }
-
-  private static ParquetMetadata readFooter(HadoopInputFile inputFile,
-      ParquetMetadataConverter.MetadataFilter filter) throws IOException {
-    ParquetReadOptions readOptions =
-      HadoopReadOptions.builder(inputFile.getConfiguration()).withMetadataFilter(filter).build();
-    // Use try-with-resources to ensure fd is closed.
-    try (ParquetFileReader fileReader = ParquetFileReader.open(inputFile, readOptions)) {
-      return fileReader.getFooter();
+    public static ParquetMetadata readFooter(Configuration configuration,
+                                             Path file, ParquetMetadataConverter.MetadataFilter filter) throws IOException {
+        return readFooter(HadoopInputFile.fromPath(file, configuration), filter);
     }
-  }
+
+    public static ParquetMetadata readFooter(Configuration configuration,
+                                             FileStatus fileStatus, ParquetMetadataConverter.MetadataFilter filter) throws IOException {
+        return readFooter(HadoopInputFile.fromStatus(fileStatus, configuration), filter);
+    }
+
+    private static ParquetMetadata readFooter(HadoopInputFile inputFile,
+                                              ParquetMetadataConverter.MetadataFilter filter) throws IOException {
+        ParquetReadOptions readOptions =
+                HadoopReadOptions.builder(inputFile.getConfiguration()).withMetadataFilter(filter).build();
+        // Use try-with-resources to ensure fd is closed.
+        try (ParquetFileReader fileReader = ParquetFileReader.open(inputFile, readOptions)) {
+            return fileReader.getFooter();
+        }
+    }
 }

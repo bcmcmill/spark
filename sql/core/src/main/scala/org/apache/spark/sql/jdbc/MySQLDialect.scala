@@ -34,11 +34,11 @@ import org.apache.spark.sql.types.{BooleanType, DataType, FloatType, LongType, M
 
 private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
 
-  override def canHandle(url : String): Boolean =
+  override def canHandle(url: String): Boolean =
     url.toLowerCase(Locale.ROOT).startsWith("jdbc:mysql")
 
   override def getCatalystType(
-      sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
+                                sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
     if (sqlType == Types.VARBINARY && typeName.equals("BIT") && size != 1) {
       // This could instead be a BinaryType if we'd rather return bit-vectors of up to 64 bits as
       // byte arrays instead of longs.
@@ -49,10 +49,6 @@ private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
     } else None
   }
 
-  override def quoteIdentifier(colName: String): String = {
-    s"`$colName`"
-  }
-
   override def getTableExistsQuery(table: String): String = {
     s"SELECT 1 FROM $table LIMIT 1"
   }
@@ -61,10 +57,14 @@ private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
 
   // See https://dev.mysql.com/doc/refman/8.0/en/alter-table.html
   override def getUpdateColumnTypeQuery(
-      tableName: String,
-      columnName: String,
-      newDataType: String): String = {
+                                         tableName: String,
+                                         columnName: String,
+                                         newDataType: String): String = {
     s"ALTER TABLE $tableName MODIFY COLUMN ${quoteIdentifier(columnName)} $newDataType"
+  }
+
+  override def quoteIdentifier(colName: String): String = {
+    s"`$colName`"
   }
 
   // See Old Syntax: https://dev.mysql.com/doc/refman/5.6/en/alter-table.html
@@ -73,10 +73,10 @@ private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
   // The old syntax requires us to have type definition. Since we do not have type
   // information, we throw the exception for old version.
   override def getRenameColumnQuery(
-      tableName: String,
-      columnName: String,
-      newName: String,
-      dbMajorVersion: Int): String = {
+                                     tableName: String,
+                                     columnName: String,
+                                     newName: String,
+                                     dbMajorVersion: Int): String = {
     if (dbMajorVersion >= 8) {
       s"ALTER TABLE $tableName RENAME COLUMN ${quoteIdentifier(columnName)} TO" +
         s" ${quoteIdentifier(newName)}"
@@ -93,9 +93,9 @@ private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
   // e.g. ALTER TABLE t1 MODIFY b INT NOT NULL;
   // We don't have column data type here, so throw Exception for now
   override def getUpdateColumnNullabilityQuery(
-      tableName: String,
-      columnName: String,
-      isNullable: Boolean): String = {
+                                                tableName: String,
+                                                columnName: String,
+                                                isNullable: Boolean): String = {
     throw QueryExecutionErrors.unsupportedUpdateColumnNullabilityError()
   }
 
@@ -114,12 +114,12 @@ private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
   // CREATE INDEX syntax
   // https://dev.mysql.com/doc/refman/8.0/en/create-index.html
   override def createIndex(
-      indexName: String,
-      indexType: String,
-      tableName: String,
-      columns: Array[NamedReference],
-      columnsProperties: Array[util.Map[NamedReference, util.Properties]],
-      properties: util.Properties): String = {
+                            indexName: String,
+                            indexType: String,
+                            tableName: String,
+                            columns: Array[NamedReference],
+                            columnsProperties: Array[util.Map[NamedReference, util.Properties]],
+                            properties: util.Properties): String = {
     val columnList = columns.map(col => quoteIdentifier(col.fieldNames.head))
     var indexProperties: String = ""
     val scalaProps = properties.asScala
@@ -146,10 +146,10 @@ private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
   // SHOW INDEX syntax
   // https://dev.mysql.com/doc/refman/8.0/en/show-index.html
   override def indexExists(
-      conn: Connection,
-      indexName: String,
-      tableName: String,
-      options: JDBCOptions): Boolean = {
+                            conn: Connection,
+                            indexName: String,
+                            tableName: String,
+                            options: JDBCOptions): Boolean = {
     val sql = s"SHOW INDEXES FROM ${quoteIdentifier(tableName)}"
     try {
       val rs = JdbcUtils.executeQuery(conn, options, sql)
@@ -174,9 +174,9 @@ private case object MySQLDialect extends JdbcDialect with SQLConfHelper {
   // SHOW INDEX syntax
   // https://dev.mysql.com/doc/refman/8.0/en/show-index.html
   override def listIndexes(
-      conn: Connection,
-      tableName: String,
-      options: JDBCOptions): Array[TableIndex] = {
+                            conn: Connection,
+                            tableName: String,
+                            options: JDBCOptions): Array[TableIndex] = {
     val sql = s"SHOW INDEXES FROM $tableName"
     var indexMap: Map[String, TableIndex] = Map()
     try {

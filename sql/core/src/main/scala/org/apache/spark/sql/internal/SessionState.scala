@@ -40,46 +40,46 @@ import org.apache.spark.util.{DependencyUtils, Utils}
 /**
  * A class that holds all session-specific state in a given [[SparkSession]].
  *
- * @param sharedState The state shared across sessions, e.g. global view manager, external catalog.
- * @param conf SQL-specific key-value configurations.
- * @param experimentalMethods Interface to add custom planning strategies and optimizers.
- * @param functionRegistry Internal catalog for managing functions registered by the user.
- * @param udfRegistration Interface exposed to the user for registering user-defined functions.
- * @param catalogBuilder a function to create an internal catalog for managing table and database
- *                       states.
- * @param sqlParser Parser that extracts expressions, plans, table identifiers etc. from SQL texts.
- * @param analyzerBuilder A function to create the logical query plan analyzer for resolving
- *                        unresolved attributes and relations.
- * @param optimizerBuilder a function to create the logical query plan optimizer.
- * @param planner Planner that converts optimized logical plans to physical plans.
+ * @param sharedState                  The state shared across sessions, e.g. global view manager, external catalog.
+ * @param conf                         SQL-specific key-value configurations.
+ * @param experimentalMethods          Interface to add custom planning strategies and optimizers.
+ * @param functionRegistry             Internal catalog for managing functions registered by the user.
+ * @param udfRegistration              Interface exposed to the user for registering user-defined functions.
+ * @param catalogBuilder               a function to create an internal catalog for managing table and database
+ *                                     states.
+ * @param sqlParser                    Parser that extracts expressions, plans, table identifiers etc. from SQL texts.
+ * @param analyzerBuilder              A function to create the logical query plan analyzer for resolving
+ *                                     unresolved attributes and relations.
+ * @param optimizerBuilder             a function to create the logical query plan optimizer.
+ * @param planner                      Planner that converts optimized logical plans to physical plans.
  * @param streamingQueryManagerBuilder A function to create a streaming query manager to
  *                                     start and stop streaming queries.
- * @param listenerManager Interface to register custominternal/SessionState.scala
- *                        [[org.apache.spark.sql.util.QueryExecutionListener]]s.
- * @param resourceLoaderBuilder a function to create a session shared resource loader to load JARs,
- *                              files, etc.
- * @param createQueryExecution Function used to create QueryExecution objects.
- * @param createClone Function used to create clones of the session state.
+ * @param listenerManager              Interface to register custominternal/SessionState.scala
+ *                                     [[org.apache.spark.sql.util.QueryExecutionListener]]s.
+ * @param resourceLoaderBuilder        a function to create a session shared resource loader to load JARs,
+ *                                     files, etc.
+ * @param createQueryExecution         Function used to create QueryExecution objects.
+ * @param createClone                  Function used to create clones of the session state.
  */
 private[sql] class SessionState(
-    sharedState: SharedState,
-    val conf: SQLConf,
-    val experimentalMethods: ExperimentalMethods,
-    val functionRegistry: FunctionRegistry,
-    val tableFunctionRegistry: TableFunctionRegistry,
-    val udfRegistration: UDFRegistration,
-    catalogBuilder: () => SessionCatalog,
-    val sqlParser: ParserInterface,
-    analyzerBuilder: () => Analyzer,
-    optimizerBuilder: () => Optimizer,
-    val planner: SparkPlanner,
-    val streamingQueryManagerBuilder: () => StreamingQueryManager,
-    val listenerManager: ExecutionListenerManager,
-    resourceLoaderBuilder: () => SessionResourceLoader,
-    createQueryExecution: (LogicalPlan, CommandExecutionMode.Value) => QueryExecution,
-    createClone: (SparkSession, SessionState) => SessionState,
-    val columnarRules: Seq[ColumnarRule],
-    val queryStagePrepRules: Seq[Rule[SparkPlan]]) {
+                                 sharedState: SharedState,
+                                 val conf: SQLConf,
+                                 val experimentalMethods: ExperimentalMethods,
+                                 val functionRegistry: FunctionRegistry,
+                                 val tableFunctionRegistry: TableFunctionRegistry,
+                                 val udfRegistration: UDFRegistration,
+                                 catalogBuilder: () => SessionCatalog,
+                                 val sqlParser: ParserInterface,
+                                 analyzerBuilder: () => Analyzer,
+                                 optimizerBuilder: () => Optimizer,
+                                 val planner: SparkPlanner,
+                                 val streamingQueryManagerBuilder: () => StreamingQueryManager,
+                                 val listenerManager: ExecutionListenerManager,
+                                 resourceLoaderBuilder: () => SessionResourceLoader,
+                                 createQueryExecution: (LogicalPlan, CommandExecutionMode.Value) => QueryExecution,
+                                 createClone: (SparkSession, SessionState) => SessionState,
+                                 val columnarRules: Seq[ColumnarRule],
+                                 val queryStagePrepRules: Seq[Rule[SparkPlan]]) {
 
   // The following fields are lazy to avoid creating the Hive client when creating SessionState.
   lazy val catalog: SessionCatalog = catalogBuilder()
@@ -96,10 +96,6 @@ private[sql] class SessionState(
 
   def catalogManager: CatalogManager = analyzer.catalogManager
 
-  def newHadoopConf(): Configuration = SessionState.newHadoopConf(
-    sharedState.sparkContext.hadoopConfiguration,
-    conf)
-
   def newHadoopConfWithOptions(options: Map[String, String]): Configuration = {
     val hadoopConf = newHadoopConf()
     options.foreach { case (k, v) =>
@@ -109,6 +105,10 @@ private[sql] class SessionState(
     }
     hadoopConf
   }
+
+  def newHadoopConf(): Configuration = SessionState.newHadoopConf(
+    sharedState.sparkContext.hadoopConfiguration,
+    conf)
 
   /**
    * Get an identical copy of the `SessionState` and associate it with the given `SparkSession`
@@ -120,8 +120,8 @@ private[sql] class SessionState(
   // ------------------------------------------------------
 
   def executePlan(
-      plan: LogicalPlan,
-      mode: CommandExecutionMode.Value = CommandExecutionMode.ALL): QueryExecution =
+                   plan: LogicalPlan,
+                   mode: CommandExecutionMode.Value = CommandExecutionMode.ALL): QueryExecution =
     createQueryExecution(plan, mode)
 }
 
@@ -138,8 +138,8 @@ private[sql] object SessionState {
  */
 @Unstable
 class SessionStateBuilder(
-    session: SparkSession,
-    parentState: Option[SessionState])
+                           session: SparkSession,
+                           parentState: Option[SessionState])
   extends BaseSessionStateBuilder(session, parentState) {
   override protected def newBuilder: NewBuilder = new SessionStateBuilder(_, _)
 }
@@ -154,13 +154,6 @@ class SessionResourceLoader(session: SparkSession) extends FunctionResourceLoade
       case JarResource => addJar(resource.uri)
       case FileResource => session.sparkContext.addFile(resource.uri)
       case ArchiveResource => session.sparkContext.addArchive(resource.uri)
-    }
-  }
-
-  def resolveJars(path: URI): Seq[String] = {
-    path.getScheme match {
-      case "ivy" => DependencyUtils.resolveMavenDependencies(path)
-      case _ => path.toString :: Nil
     }
   }
 
@@ -186,5 +179,12 @@ class SessionResourceLoader(session: SparkSession) extends FunctionResourceLoade
       session.sharedState.jarClassLoader.addURL(jarURL)
     }
     Thread.currentThread().setContextClassLoader(session.sharedState.jarClassLoader)
+  }
+
+  def resolveJars(path: URI): Seq[String] = {
+    path.getScheme match {
+      case "ivy" => DependencyUtils.resolveMavenDependencies(path)
+      case _ => path.toString :: Nil
+    }
   }
 }

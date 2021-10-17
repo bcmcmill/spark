@@ -27,11 +27,11 @@ import org.apache.spark.sql.types.StructType
  * A function wrapper that applies the given R function to each partition.
  */
 case class MapPartitionsRWrapper(
-    func: Array[Byte],
-    packageNames: Array[Byte],
-    broadcastVars: Array[Broadcast[Object]],
-    inputSchema: StructType,
-    outputSchema: StructType) extends (Iterator[Any] => Iterator[Any]) {
+                                  func: Array[Byte],
+                                  packageNames: Array[Byte],
+                                  broadcastVars: Array[Broadcast[Object]],
+                                  inputSchema: StructType,
+                                  outputSchema: StructType) extends (Iterator[Any] => Iterator[Any]) {
   def apply(iter: Iterator[Any]): Iterator[Any] = {
     // If the content of current DataFrame is serialized R data?
     val isSerializedRData = inputSchema == SERIALIZED_R_DATA_SCHEMA
@@ -39,8 +39,8 @@ case class MapPartitionsRWrapper(
     val (newIter, deserializer, colNames) =
       if (!isSerializedRData) {
         // Serialize each row into a byte array that can be deserialized in the R worker
-        (iter.asInstanceOf[Iterator[Row]].map {row => rowToRBytes(row)},
-         SerializationFormats.ROW, inputSchema.fieldNames)
+        (iter.asInstanceOf[Iterator[Row]].map { row => rowToRBytes(row) },
+          SerializationFormats.ROW, inputSchema.fieldNames)
       } else {
         (iter.asInstanceOf[Iterator[Row]].map { row => row(0) }, SerializationFormats.BYTE, null)
       }

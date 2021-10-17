@@ -26,18 +26,11 @@ import org.apache.spark.sql.types._
 
 private object MsSqlServerDialect extends JdbcDialect {
 
-  // Special JDBC types in Microsoft SQL Server.
-  // https://github.com/microsoft/mssql-jdbc/blob/v8.2.2/src/main/java/microsoft/sql/Types.java
-  private object SpecificTypes {
-    val GEOMETRY = -157
-    val GEOGRAPHY = -158
-  }
-
   override def canHandle(url: String): Boolean =
     url.toLowerCase(Locale.ROOT).startsWith("jdbc:sqlserver")
 
   override def getCatalystType(
-      sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
+                                sqlType: Int, typeName: String, size: Int, md: MetadataBuilder): Option[DataType] = {
     if (typeName.contains("datetimeoffset")) {
       // String is recommend by Microsoft SQL Server for datetimeoffset types in non-MS clients
       Option(StringType)
@@ -78,9 +71,9 @@ private object MsSqlServerDialect extends JdbcDialect {
   // see https://docs.microsoft.com/en-us/sql/relational-databases/tables/add-columns-to-a-table-database-engine?view=sql-server-ver15
   // scalastyle:on line.size.limit
   override def getAddColumnQuery(
-      tableName: String,
-      columnName: String,
-      dataType: String): String = {
+                                  tableName: String,
+                                  columnName: String,
+                                  dataType: String): String = {
     s"ALTER TABLE $tableName ADD ${quoteIdentifier(columnName)} $dataType"
   }
 
@@ -88,10 +81,10 @@ private object MsSqlServerDialect extends JdbcDialect {
   // See https://docs.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-rename-transact-sql?view=sql-server-ver15
   // scalastyle:on line.size.limit
   override def getRenameColumnQuery(
-      tableName: String,
-      columnName: String,
-      newName: String,
-      dbMajorVersion: Int): String = {
+                                     tableName: String,
+                                     columnName: String,
+                                     newName: String,
+                                     dbMajorVersion: Int): String = {
     s"EXEC sp_rename '$tableName.${quoteIdentifier(columnName)}'," +
       s" ${quoteIdentifier(newName)}, 'COLUMN'"
   }
@@ -105,9 +98,9 @@ private object MsSqlServerDialect extends JdbcDialect {
   //    data_type [NOT NULL | NULL]
   // We don't have column data type here, so we throw Exception for now
   override def getUpdateColumnNullabilityQuery(
-      tableName: String,
-      columnName: String,
-      isNullable: Boolean): String = {
+                                                tableName: String,
+                                                columnName: String,
+                                                isNullable: Boolean): String = {
     throw QueryExecutionErrors.unsupportedUpdateColumnNullabilityError()
   }
 
@@ -117,5 +110,12 @@ private object MsSqlServerDialect extends JdbcDialect {
   // need to use the stored procedure called sp_addextendedproperty to add comments to tables
   override def getTableCommentQuery(table: String, comment: String): String = {
     throw QueryExecutionErrors.commentOnTableUnsupportedError()
+  }
+
+  // Special JDBC types in Microsoft SQL Server.
+  // https://github.com/microsoft/mssql-jdbc/blob/v8.2.2/src/main/java/microsoft/sql/Types.java
+  private object SpecificTypes {
+    val GEOMETRY = -157
+    val GEOGRAPHY = -158
   }
 }

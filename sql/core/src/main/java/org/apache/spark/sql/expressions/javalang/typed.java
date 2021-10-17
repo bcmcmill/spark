@@ -26,7 +26,7 @@ import org.apache.spark.sql.execution.aggregate.TypedSumLong;
 
 /**
  * Type-safe functions available for {@link org.apache.spark.sql.Dataset} operations in Java.
- *
+ * <p>
  * Scala users should use {@link org.apache.spark.sql.expressions.scalalang.typed}.
  *
  * @since 2.0.0
@@ -34,41 +34,41 @@ import org.apache.spark.sql.execution.aggregate.TypedSumLong;
  */
 @Deprecated
 public class typed {
-  // Note: make sure to keep in sync with typed.scala
+    // Note: make sure to keep in sync with typed.scala
 
-  /**
-   * Average aggregate function.
-   *
-   * @since 2.0.0
-   */
-  public static <T> TypedColumn<T, Double> avg(MapFunction<T, Double> f) {
-    return new TypedAverage<T>(f).toColumnJava();
-  }
+    /**
+     * Average aggregate function.
+     *
+     * @since 2.0.0
+     */
+    public static <T> TypedColumn<T, Double> avg(MapFunction<T, Double> f) {
+        return new TypedAverage<T>(f).toColumnJava();
+    }
 
-  /**
-   * Count aggregate function.
-   *
-   * @since 2.0.0
-   */
-  public static <T> TypedColumn<T, Long> count(MapFunction<T, Object> f) {
-    return new TypedCount<T>(f).toColumnJava();
-  }
+    /**
+     * Count aggregate function.
+     *
+     * @since 2.0.0
+     */
+    public static <T> TypedColumn<T, Long> count(MapFunction<T, Object> f) {
+        return new TypedCount<T>(f).toColumnJava();
+    }
 
-  /**
-   * Sum aggregate function for floating point (double) type.
-   *
-   * @since 2.0.0
-   */
-  public static <T> TypedColumn<T, Double> sum(MapFunction<T, Double> f) {
-    return new TypedSumDouble<T>(f).toColumnJava();
-  }
+    /**
+     * Sum aggregate function for floating point (double) type.
+     *
+     * @since 2.0.0
+     */
+    public static <T> TypedColumn<T, Double> sum(MapFunction<T, Double> f) {
+        return new TypedSumDouble<T>(f).toColumnJava();
+    }
 
-  /**
-   * Sum aggregate function for integral (long, i.e. 64 bit integer) type.
-   *
-   * @since 2.0.0
-   */
-  public static <T> TypedColumn<T, Long> sumLong(MapFunction<T, Long> f) {
-    return new TypedSumLong<T>(f).toColumnJava();
-  }
+    /**
+     * Sum aggregate function for integral (long, i.e. 64 bit integer) type.
+     *
+     * @since 2.0.0
+     */
+    public static <T> TypedColumn<T, Long> sumLong(MapFunction<T, Long> f) {
+        return new TypedSumLong<T>(f).toColumnJava();
+    }
 }

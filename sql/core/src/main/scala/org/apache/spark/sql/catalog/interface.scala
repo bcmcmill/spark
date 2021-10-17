@@ -29,16 +29,16 @@ import org.apache.spark.sql.catalyst.DefinedByConstructorParams
 /**
  * A database in Spark, as returned by the `listDatabases` method defined in [[Catalog]].
  *
- * @param name name of the database.
+ * @param name        name of the database.
  * @param description description of the database.
  * @param locationUri path (in the form of a uri) to data files.
  * @since 2.0.0
  */
 @Stable
 class Database(
-    val name: String,
-    @Nullable val description: String,
-    val locationUri: String)
+                val name: String,
+                @Nullable val description: String,
+                val locationUri: String)
   extends DefinedByConstructorParams {
 
   override def toString: String = {
@@ -54,20 +54,20 @@ class Database(
 /**
  * A table in Spark, as returned by the `listTables` method in [[Catalog]].
  *
- * @param name name of the table.
- * @param database name of the database the table belongs to.
+ * @param name        name of the table.
+ * @param database    name of the database the table belongs to.
  * @param description description of the table.
- * @param tableType type of the table (e.g. view, table).
+ * @param tableType   type of the table (e.g. view, table).
  * @param isTemporary whether the table is a temporary table.
  * @since 2.0.0
  */
 @Stable
 class Table(
-    val name: String,
-    @Nullable val database: String,
-    @Nullable val description: String,
-    val tableType: String,
-    val isTemporary: Boolean)
+             val name: String,
+             @Nullable val database: String,
+             @Nullable val description: String,
+             val tableType: String,
+             val isTemporary: Boolean)
   extends DefinedByConstructorParams {
 
   override def toString: String = {
@@ -85,22 +85,22 @@ class Table(
 /**
  * A column in Spark, as returned by `listColumns` method in [[Catalog]].
  *
- * @param name name of the column.
+ * @param name        name of the column.
  * @param description description of the column.
- * @param dataType data type of the column.
- * @param nullable whether the column is nullable.
+ * @param dataType    data type of the column.
+ * @param nullable    whether the column is nullable.
  * @param isPartition whether the column is a partition column.
- * @param isBucket whether the column is a bucket column.
+ * @param isBucket    whether the column is a bucket column.
  * @since 2.0.0
  */
 @Stable
 class Column(
-    val name: String,
-    @Nullable val description: String,
-    val dataType: String,
-    val nullable: Boolean,
-    val isPartition: Boolean,
-    val isBucket: Boolean)
+              val name: String,
+              @Nullable val description: String,
+              val dataType: String,
+              val nullable: Boolean,
+              val isPartition: Boolean,
+              val isBucket: Boolean)
   extends DefinedByConstructorParams {
 
   override def toString: String = {
@@ -119,20 +119,20 @@ class Column(
 /**
  * A user-defined function in Spark, as returned by `listFunctions` method in [[Catalog]].
  *
- * @param name name of the function.
- * @param database name of the database the function belongs to.
+ * @param name        name of the function.
+ * @param database    name of the database the function belongs to.
  * @param description description of the function; description can be null.
- * @param className the fully qualified class name of the function.
+ * @param className   the fully qualified class name of the function.
  * @param isTemporary whether the function is a temporary function or not.
  * @since 2.0.0
  */
 @Stable
 class Function(
-    val name: String,
-    @Nullable val database: String,
-    @Nullable val description: String,
-    val className: String,
-    val isTemporary: Boolean)
+                val name: String,
+                @Nullable val database: String,
+                @Nullable val description: String,
+                val className: String,
+                val isTemporary: Boolean)
   extends DefinedByConstructorParams {
 
   override def toString: String = {

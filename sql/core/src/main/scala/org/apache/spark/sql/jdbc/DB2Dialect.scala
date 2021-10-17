@@ -28,10 +28,10 @@ private object DB2Dialect extends JdbcDialect {
     url.toLowerCase(Locale.ROOT).startsWith("jdbc:db2")
 
   override def getCatalystType(
-      sqlType: Int,
-      typeName: String,
-      size: Int,
-      md: MetadataBuilder): Option[DataType] = sqlType match {
+                                sqlType: Int,
+                                typeName: String,
+                                size: Int,
+                                md: MetadataBuilder): Option[DataType] = sqlType match {
     case Types.REAL => Option(FloatType)
     case Types.OTHER =>
       typeName match {
@@ -63,9 +63,9 @@ private object DB2Dialect extends JdbcDialect {
   // See https://www.ibm.com/support/knowledgecenter/en/SSEPGG_11.5.0/com.ibm.db2.luw.sql.ref.doc/doc/r0000888.html
   // scalastyle:on line.size.limit
   override def getUpdateColumnTypeQuery(
-      tableName: String,
-      columnName: String,
-      newDataType: String): String =
+                                         tableName: String,
+                                         columnName: String,
+                                         newDataType: String): String =
     s"ALTER TABLE $tableName ALTER COLUMN ${quoteIdentifier(columnName)}" +
       s" SET DATA TYPE $newDataType"
 
@@ -73,9 +73,9 @@ private object DB2Dialect extends JdbcDialect {
   // See https://www.ibm.com/support/knowledgecenter/en/SSEPGG_11.5.0/com.ibm.db2.luw.sql.ref.doc/doc/r0000888.html
   // scalastyle:on line.size.limit
   override def getUpdateColumnNullabilityQuery(
-      tableName: String,
-      columnName: String,
-      isNullable: Boolean): String = {
+                                                tableName: String,
+                                                columnName: String,
+                                                isNullable: Boolean): String = {
     val nullable = if (isNullable) "DROP NOT NULL" else "SET NOT NULL"
     s"ALTER TABLE $tableName ALTER COLUMN ${quoteIdentifier(columnName)} $nullable"
   }

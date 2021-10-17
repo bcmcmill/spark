@@ -35,132 +35,136 @@ import org.apache.spark.sql.execution.streaming.ProcessingTimeTrigger;
 @Evolving
 public class Trigger {
 
-  /**
-   * A trigger policy that runs a query periodically based on an interval in processing time.
-   * If `interval` is 0, the query will run as fast as possible.
-   *
-   * @since 2.2.0
-   */
-  public static Trigger ProcessingTime(long intervalMs) {
-      return ProcessingTimeTrigger.create(intervalMs, TimeUnit.MILLISECONDS);
-  }
+    /**
+     * A trigger policy that runs a query periodically based on an interval in processing time.
+     * If `interval` is 0, the query will run as fast as possible.
+     *
+     * @since 2.2.0
+     */
+    public static Trigger ProcessingTime(long intervalMs) {
+        return ProcessingTimeTrigger.create(intervalMs, TimeUnit.MILLISECONDS);
+    }
 
-  /**
-   * (Java-friendly)
-   * A trigger policy that runs a query periodically based on an interval in processing time.
-   * If `interval` is 0, the query will run as fast as possible.
-   *
-   * {{{
-   *    import java.util.concurrent.TimeUnit
-   *    df.writeStream().trigger(Trigger.ProcessingTime(10, TimeUnit.SECONDS))
-   * }}}
-   *
-   * @since 2.2.0
-   */
-  public static Trigger ProcessingTime(long interval, TimeUnit timeUnit) {
-      return ProcessingTimeTrigger.create(interval, timeUnit);
-  }
+    /**
+     * (Java-friendly)
+     * A trigger policy that runs a query periodically based on an interval in processing time.
+     * If `interval` is 0, the query will run as fast as possible.
+     * <p>
+     * {{{
+     * import java.util.concurrent.TimeUnit
+     * df.writeStream().trigger(Trigger.ProcessingTime(10, TimeUnit.SECONDS))
+     * }}}
+     *
+     * @since 2.2.0
+     */
+    public static Trigger ProcessingTime(long interval, TimeUnit timeUnit) {
+        return ProcessingTimeTrigger.create(interval, timeUnit);
+    }
 
-  /**
-   * (Scala-friendly)
-   * A trigger policy that runs a query periodically based on an interval in processing time.
-   * If `duration` is 0, the query will run as fast as possible.
-   *
-   * {{{
-   *    import scala.concurrent.duration._
-   *    df.writeStream.trigger(Trigger.ProcessingTime(10.seconds))
-   * }}}
-   * @since 2.2.0
-   */
-  public static Trigger ProcessingTime(Duration interval) {
-      return ProcessingTimeTrigger.apply(interval);
-  }
+    /**
+     * (Scala-friendly)
+     * A trigger policy that runs a query periodically based on an interval in processing time.
+     * If `duration` is 0, the query will run as fast as possible.
+     * <p>
+     * {{{
+     * import scala.concurrent.duration._
+     * df.writeStream.trigger(Trigger.ProcessingTime(10.seconds))
+     * }}}
+     *
+     * @since 2.2.0
+     */
+    public static Trigger ProcessingTime(Duration interval) {
+        return ProcessingTimeTrigger.apply(interval);
+    }
 
-  /**
-   * A trigger policy that runs a query periodically based on an interval in processing time.
-   * If `interval` is effectively 0, the query will run as fast as possible.
-   *
-   * {{{
-   *    df.writeStream.trigger(Trigger.ProcessingTime("10 seconds"))
-   * }}}
-   * @since 2.2.0
-   */
-  public static Trigger ProcessingTime(String interval) {
-      return ProcessingTimeTrigger.apply(interval);
-  }
+    /**
+     * A trigger policy that runs a query periodically based on an interval in processing time.
+     * If `interval` is effectively 0, the query will run as fast as possible.
+     * <p>
+     * {{{
+     * df.writeStream.trigger(Trigger.ProcessingTime("10 seconds"))
+     * }}}
+     *
+     * @since 2.2.0
+     */
+    public static Trigger ProcessingTime(String interval) {
+        return ProcessingTimeTrigger.apply(interval);
+    }
 
-  /**
-   * A trigger that processes all available data in a single batch then terminates the query.
-   *
-   * For better scalability, AvailableNow can be used alternatively to process the data in
-   * multiple batches.
-   *
-   * @since 2.2.0
-   */
-  public static Trigger Once() {
-    return OneTimeTrigger$.MODULE$;
-  }
+    /**
+     * A trigger that processes all available data in a single batch then terminates the query.
+     * <p>
+     * For better scalability, AvailableNow can be used alternatively to process the data in
+     * multiple batches.
+     *
+     * @since 2.2.0
+     */
+    public static Trigger Once() {
+        return OneTimeTrigger$.MODULE$;
+    }
 
-  /**
-   * A trigger that processes all available data at the start of the query in one or multiple
-   * batches, then terminates the query.
-   *
-   * @since 3.3.0
-   */
-  public static Trigger AvailableNow() {
-    return AvailableNowTrigger$.MODULE$;
-  }
+    /**
+     * A trigger that processes all available data at the start of the query in one or multiple
+     * batches, then terminates the query.
+     *
+     * @since 3.3.0
+     */
+    public static Trigger AvailableNow() {
+        return AvailableNowTrigger$.MODULE$;
+    }
 
-  /**
-   * A trigger that continuously processes streaming data, asynchronously checkpointing at
-   * the specified interval.
-   *
-   * @since 2.3.0
-   */
-  public static Trigger Continuous(long intervalMs) {
-    return ContinuousTrigger.apply(intervalMs);
-  }
+    /**
+     * A trigger that continuously processes streaming data, asynchronously checkpointing at
+     * the specified interval.
+     *
+     * @since 2.3.0
+     */
+    public static Trigger Continuous(long intervalMs) {
+        return ContinuousTrigger.apply(intervalMs);
+    }
 
-  /**
-   * A trigger that continuously processes streaming data, asynchronously checkpointing at
-   * the specified interval.
-   *
-   * {{{
-   *    import java.util.concurrent.TimeUnit
-   *    df.writeStream.trigger(Trigger.Continuous(10, TimeUnit.SECONDS))
-   * }}}
-   *
-   * @since 2.3.0
-   */
-  public static Trigger Continuous(long interval, TimeUnit timeUnit) {
-    return ContinuousTrigger.create(interval, timeUnit);
-  }
+    /**
+     * A trigger that continuously processes streaming data, asynchronously checkpointing at
+     * the specified interval.
+     * <p>
+     * {{{
+     * import java.util.concurrent.TimeUnit
+     * df.writeStream.trigger(Trigger.Continuous(10, TimeUnit.SECONDS))
+     * }}}
+     *
+     * @since 2.3.0
+     */
+    public static Trigger Continuous(long interval, TimeUnit timeUnit) {
+        return ContinuousTrigger.create(interval, timeUnit);
+    }
 
-  /**
-   * (Scala-friendly)
-   * A trigger that continuously processes streaming data, asynchronously checkpointing at
-   * the specified interval.
-   *
-   * {{{
-   *    import scala.concurrent.duration._
-   *    df.writeStream.trigger(Trigger.Continuous(10.seconds))
-   * }}}
-   * @since 2.3.0
-   */
-  public static Trigger Continuous(Duration interval) {
-    return ContinuousTrigger.apply(interval);
-  }
+    /**
+     * (Scala-friendly)
+     * A trigger that continuously processes streaming data, asynchronously checkpointing at
+     * the specified interval.
+     * <p>
+     * {{{
+     * import scala.concurrent.duration._
+     * df.writeStream.trigger(Trigger.Continuous(10.seconds))
+     * }}}
+     *
+     * @since 2.3.0
+     */
+    public static Trigger Continuous(Duration interval) {
+        return ContinuousTrigger.apply(interval);
+    }
 
-  /**
-   * A trigger that continuously processes streaming data, asynchronously checkpointing at
-   * the specified interval.
-   *
-   * {{{
-   *    df.writeStream.trigger(Trigger.Continuous("10 seconds"))
-   * }}}
-   * @since 2.3.0
-   */
-  public static Trigger Continuous(String interval) {
-    return ContinuousTrigger.apply(interval);
-  }
+    /**
+     * A trigger that continuously processes streaming data, asynchronously checkpointing at
+     * the specified interval.
+     * <p>
+     * {{{
+     * df.writeStream.trigger(Trigger.Continuous("10 seconds"))
+     * }}}
+     *
+     * @since 2.3.0
+     */
+    public static Trigger Continuous(String interval) {
+        return ContinuousTrigger.apply(interval);
+    }
 }

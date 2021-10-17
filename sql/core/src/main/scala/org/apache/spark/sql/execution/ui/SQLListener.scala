@@ -29,25 +29,25 @@ import org.apache.spark.sql.execution.{QueryExecution, SparkPlanInfo}
 
 @DeveloperApi
 case class SparkListenerSQLAdaptiveExecutionUpdate(
-  executionId: Long,
-  physicalPlanDescription: String,
-  sparkPlanInfo: SparkPlanInfo)
+                                                    executionId: Long,
+                                                    physicalPlanDescription: String,
+                                                    sparkPlanInfo: SparkPlanInfo)
   extends SparkListenerEvent
 
 @DeveloperApi
 case class SparkListenerSQLAdaptiveSQLMetricUpdates(
-    executionId: Long,
-    sqlPlanMetrics: Seq[SQLPlanMetric])
+                                                     executionId: Long,
+                                                     sqlPlanMetrics: Seq[SQLPlanMetric])
   extends SparkListenerEvent
 
 @DeveloperApi
 case class SparkListenerSQLExecutionStart(
-    executionId: Long,
-    description: String,
-    details: String,
-    physicalPlanDescription: String,
-    sparkPlanInfo: SparkPlanInfo,
-    time: Long)
+                                           executionId: Long,
+                                           description: String,
+                                           details: String,
+                                           physicalPlanDescription: String,
+                                           sparkPlanInfo: SparkPlanInfo,
+                                           time: Long)
   extends SparkListenerEvent
 
 @DeveloperApi
@@ -73,14 +73,14 @@ case class SparkListenerSQLExecutionEnd(executionId: Long, time: Long)
  * A message used to update SQL metric value for driver-side updates (which doesn't get reflected
  * automatically).
  *
- * @param executionId The execution id for a query, so we can find the query plan.
+ * @param executionId  The execution id for a query, so we can find the query plan.
  * @param accumUpdates Map from accumulator id to the metric value (metrics are always 64-bit ints).
  */
 @DeveloperApi
 case class SparkListenerDriverAccumUpdates(
-    executionId: Long,
-    @JsonDeserialize(contentConverter = classOf[LongLongTupleConverter])
-    accumUpdates: Seq[(Long, Long)])
+                                            executionId: Long,
+                                            @JsonDeserialize(contentConverter = classOf[LongLongTupleConverter])
+                                            accumUpdates: Seq[(Long, Long)])
   extends SparkListenerEvent
 
 /**
@@ -98,6 +98,7 @@ private class LongLongTupleConverter extends Converter[(Object, Object), (Long, 
       case i: java.lang.Integer => i.intValue()
       case l: java.lang.Long => l.longValue()
     }
+
     (toLong(in._1), toLong(in._2))
   }
 

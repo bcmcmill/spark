@@ -22,6 +22,7 @@ import org.apache.spark.sql.types._
 
 /**
  * An example class to demonstrate UDT in Scala, Java, and Python.
+ *
  * @param x x coordinate
  * @param y y coordinate
  */

@@ -56,22 +56,9 @@ import org.apache.spark.sql.util.ExecutionListenerManager
  */
 @Unstable
 abstract class BaseSessionStateBuilder(
-    val session: SparkSession,
-    val parentState: Option[SessionState]) {
+                                        val session: SparkSession,
+                                        val parentState: Option[SessionState]) {
   type NewBuilder = (SparkSession, Option[SessionState]) => BaseSessionStateBuilder
-
-  /**
-   * Function that produces a new instance of the `BaseSessionStateBuilder`. This is used by the
-   * [[SessionState]]'s clone functionality. Make sure to override this when implementing your own
-   * [[SessionStateBuilder]].
-   */
-  protected def newBuilder: NewBuilder
-
-  /**
-   * Session extensions defined in the [[SparkSession]].
-   */
-  protected def extensions: SparkSessionExtensions = session.extensions
-
   /**
    * SQL-specific key-value configurations.
    *
@@ -94,7 +81,6 @@ abstract class BaseSessionStateBuilder(
       conf
     }
   }
-
   /**
    * Internal catalog managing functions registered by the user.
    *
@@ -104,7 +90,6 @@ abstract class BaseSessionStateBuilder(
     parentState.map(_.functionRegistry.clone())
       .getOrElse(extensions.registerFunctions(FunctionRegistry.builtin.clone()))
   }
-
   /**
    * Internal catalog managing functions registered by the user.
    *
@@ -114,7 +99,6 @@ abstract class BaseSessionStateBuilder(
     parentState.map(_.tableFunctionRegistry.clone())
       .getOrElse(extensions.registerTableFunctions(TableFunctionRegistry.builtin.clone()))
   }
-
   /**
    * Experimental methods that can be used to define custom optimization rules and custom planning
    * strategies.
@@ -124,7 +108,6 @@ abstract class BaseSessionStateBuilder(
   protected lazy val experimentalMethods: ExperimentalMethods = {
     parentState.map(_.experimentalMethods.clone()).getOrElse(new ExperimentalMethods)
   }
-
   /**
    * Parser that extracts expressions, plans, table identifiers etc. from SQL texts.
    *
@@ -133,12 +116,10 @@ abstract class BaseSessionStateBuilder(
   protected lazy val sqlParser: ParserInterface = {
     extensions.buildParser(session, new SparkSqlParser())
   }
-
   /**
    * ResourceLoader that is used to load function resources and jars.
    */
   protected lazy val resourceLoader: SessionResourceLoader = new SessionResourceLoader(session)
-
   /**
    * Catalog for managing table and database states. If there is a pre-existing catalog, the state
    * of that catalog (temp tables & current database) will be copied into the new catalog.
@@ -157,10 +138,45 @@ abstract class BaseSessionStateBuilder(
     parentState.foreach(_.catalog.copyStateTo(catalog))
     catalog
   }
-
   protected lazy val v2SessionCatalog = new V2SessionCatalog(catalog)
-
   protected lazy val catalogManager = new CatalogManager(v2SessionCatalog, catalog)
+
+  /**
+   * Build the [[SessionState]].
+   */
+  def build(): SessionState = {
+    new SessionState(
+      session.sharedState,
+      conf,
+      experimentalMethods,
+      functionRegistry,
+      tableFunctionRegistry,
+      udfRegistration,
+      () => catalog,
+      sqlParser,
+      () => analyzer,
+      () => optimizer,
+      planner,
+      () => streamingQueryManager,
+      listenerManager,
+      () => resourceLoader,
+      createQueryExecution,
+      createClone,
+      columnarRules,
+      queryStagePrepRules)
+  }
+
+  /**
+   * Function that produces a new instance of the `BaseSessionStateBuilder`. This is used by the
+   * [[SessionState]]'s clone functionality. Make sure to override this when implementing your own
+   * [[SessionStateBuilder]].
+   */
+  protected def newBuilder: NewBuilder
+
+  /**
+   * Session extensions defined in the [[SparkSession]].
+   */
+  protected def extensions: SparkSessionExtensions = session.extensions
 
   /**
    * Interface exposed to the user for registering user-defined functions.
@@ -311,8 +327,8 @@ abstract class BaseSessionStateBuilder(
    * Create a query execution object.
    */
   protected def createQueryExecution:
-    (LogicalPlan, CommandExecutionMode.Value) => QueryExecution =
-      (plan, mode) => new QueryExecution(session, plan, mode = mode)
+  (LogicalPlan, CommandExecutionMode.Value) => QueryExecution =
+    (plan, mode) => new QueryExecution(session, plan, mode = mode)
 
   /**
    * Interface to start and stop streaming queries.
@@ -337,39 +353,13 @@ abstract class BaseSessionStateBuilder(
     val createBuilder = newBuilder
     (session, state) => createBuilder(session, Option(state)).build()
   }
-
-  /**
-   * Build the [[SessionState]].
-   */
-  def build(): SessionState = {
-    new SessionState(
-      session.sharedState,
-      conf,
-      experimentalMethods,
-      functionRegistry,
-      tableFunctionRegistry,
-      udfRegistration,
-      () => catalog,
-      sqlParser,
-      () => analyzer,
-      () => optimizer,
-      planner,
-      () => streamingQueryManager,
-      listenerManager,
-      () => resourceLoader,
-      createQueryExecution,
-      createClone,
-      columnarRules,
-      queryStagePrepRules)
-  }
 }
 
 /**
  * Helper class for using SessionStateBuilders during tests.
  */
-private[sql] trait WithTestConf { self: BaseSessionStateBuilder =>
-  def overrideConfs: Map[String, String]
-
+private[sql] trait WithTestConf {
+  self: BaseSessionStateBuilder =>
   override protected lazy val conf: SQLConf = {
     val overrideConfigurations = overrideConfs
     parentState.map { s =>
@@ -381,6 +371,7 @@ private[sql] trait WithTestConf { self: BaseSessionStateBuilder =>
     }.getOrElse {
       val conf = new SQLConf {
         clear()
+
         override def clear(): Unit = {
           super.clear()
           // Make sure we start with the default test configs even after clear
@@ -391,4 +382,6 @@ private[sql] trait WithTestConf { self: BaseSessionStateBuilder =>
       conf
     }
   }
+
+  def overrideConfs: Map[String, String]
 }

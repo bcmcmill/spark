@@ -61,11 +61,19 @@ import org.apache.spark.util.{AccumulatorV2, LongAccumulator}
  */
 package object debug {
 
-  /** Helper function to evade the println() linter. */
-  private def debugPrint(msg: String): Unit = {
-    // scalastyle:off println
-    println(msg)
-    // scalastyle:on println
+  /**
+   * Get WholeStageCodegenExec subtrees and the codegen in a query plan into one String
+   *
+   * @param query the streaming query for codegen
+   * @return single String containing all WholeStageCodegen subtrees and corresponding codegen
+   */
+  def codegenString(query: StreamingQuery): String = {
+    val w = asStreamExecution(query)
+    if (w.lastExecution != null) {
+      codegenString(w.lastExecution.executedPlan)
+    } else {
+      "No physical plan. Waiting for data."
+    }
   }
 
   /**
@@ -97,6 +105,21 @@ package object debug {
       append(subtree)
       append("\nGenerated code:\n")
       append(s"$code\n")
+    }
+  }
+
+  /**
+   * Get WholeStageCodegenExec subtrees and the codegen in a query plan
+   *
+   * @param query the streaming query for codegen
+   * @return Sequence of WholeStageCodegen subtrees and corresponding codegen
+   */
+  def codegenStringSeq(query: StreamingQuery): Seq[(String, String, ByteCodeStats)] = {
+    val w = asStreamExecution(query)
+    if (w.lastExecution != null) {
+      codegenStringSeq(w.lastExecution.executedPlan)
+    } else {
+      Seq.empty
     }
   }
 
@@ -136,41 +159,18 @@ package object debug {
     }
   }
 
-  /**
-   * Get WholeStageCodegenExec subtrees and the codegen in a query plan into one String
-   *
-   * @param query the streaming query for codegen
-   * @return single String containing all WholeStageCodegen subtrees and corresponding codegen
-   */
-  def codegenString(query: StreamingQuery): String = {
-    val w = asStreamExecution(query)
-    if (w.lastExecution != null) {
-      codegenString(w.lastExecution.executedPlan)
-    } else {
-      "No physical plan. Waiting for data."
-    }
-  }
-
-  /**
-   * Get WholeStageCodegenExec subtrees and the codegen in a query plan
-   *
-   * @param query the streaming query for codegen
-   * @return Sequence of WholeStageCodegen subtrees and corresponding codegen
-   */
-  def codegenStringSeq(query: StreamingQuery): Seq[(String, String, ByteCodeStats)] = {
-    val w = asStreamExecution(query)
-    if (w.lastExecution != null) {
-      codegenStringSeq(w.lastExecution.executedPlan)
-    } else {
-      Seq.empty
-    }
-  }
-
   private def asStreamExecution(query: StreamingQuery): StreamExecution = query match {
     case wrapper: StreamingQueryWrapper => wrapper.streamingQuery
     case q: StreamExecution => q
     case _ => throw new IllegalArgumentException("Parameter should be an instance of " +
       "StreamExecution!")
+  }
+
+  /** Helper function to evade the println() linter. */
+  private def debugPrint(msg: String): Unit = {
+    // scalastyle:off println
+    println(msg)
+    // scalastyle:on println
   }
 
   /**
@@ -207,34 +207,7 @@ package object debug {
   }
 
   case class DebugExec(child: SparkPlan) extends UnaryExecNode with CodegenSupport {
-    def output: Seq[Attribute] = child.output
-
-    class SetAccumulator[T] extends AccumulatorV2[T, java.util.Set[T]] {
-      private val _set = Collections.synchronizedSet(new java.util.HashSet[T]())
-      override def isZero: Boolean = _set.isEmpty
-      override def copy(): AccumulatorV2[T, java.util.Set[T]] = {
-        val newAcc = new SetAccumulator[T]()
-        newAcc._set.addAll(_set)
-        newAcc
-      }
-      override def reset(): Unit = _set.clear()
-      override def add(v: T): Unit = _set.add(v)
-      override def merge(other: AccumulatorV2[T, java.util.Set[T]]): Unit = {
-        _set.addAll(other.value)
-      }
-      override def value: java.util.Set[T] = _set
-    }
-
-    /**
-     * A collection of metrics for each column of output.
-     */
-    case class ColumnMetrics() {
-      val elementTypes = new SetAccumulator[String]
-      sparkContext.register(elementTypes)
-    }
-
     val tupleCount: LongAccumulator = sparkContext.longAccumulator
-
     val numColumns: Int = child.output.size
     val columnStats: Array[ColumnMetrics] = Array.fill(child.output.size)(new ColumnMetrics())
 
@@ -246,28 +219,6 @@ package object debug {
         // `asScala` which accesses the internal values using `java.util.Iterator`.
         val actualDataTypes = metric.elementTypes.value.asScala.mkString("{", ",", "}")
         debugPrint(s" ${attr.name} ${attr.dataType}: $actualDataTypes")
-      }
-    }
-
-    protected override def doExecute(): RDD[InternalRow] = {
-      child.execute().mapPartitions { iter =>
-        new Iterator[InternalRow] {
-          def hasNext: Boolean = iter.hasNext
-
-          def next(): InternalRow = {
-            val currentRow = iter.next()
-            tupleCount.add(1)
-            var i = 0
-            while (i < numColumns) {
-              val value = currentRow.get(i, output(i).dataType)
-              if (value != null) {
-                columnStats(i).elementTypes.add(value.getClass.getName)
-              }
-              i += 1
-            }
-            currentRow
-          }
-        }
       }
     }
 
@@ -295,7 +246,61 @@ package object debug {
 
     override def supportsColumnar: Boolean = child.supportsColumnar
 
+    protected override def doExecute(): RDD[InternalRow] = {
+      child.execute().mapPartitions { iter =>
+        new Iterator[InternalRow] {
+          def hasNext: Boolean = iter.hasNext
+
+          def next(): InternalRow = {
+            val currentRow = iter.next()
+            tupleCount.add(1)
+            var i = 0
+            while (i < numColumns) {
+              val value = currentRow.get(i, output(i).dataType)
+              if (value != null) {
+                columnStats(i).elementTypes.add(value.getClass.getName)
+              }
+              i += 1
+            }
+            currentRow
+          }
+        }
+      }
+    }
+
+    def output: Seq[Attribute] = child.output
+
     override protected def withNewChildInternal(newChild: SparkPlan): DebugExec =
       copy(child = newChild)
+
+    class SetAccumulator[T] extends AccumulatorV2[T, java.util.Set[T]] {
+      private val _set = Collections.synchronizedSet(new java.util.HashSet[T]())
+
+      override def isZero: Boolean = _set.isEmpty
+
+      override def copy(): AccumulatorV2[T, java.util.Set[T]] = {
+        val newAcc = new SetAccumulator[T]()
+        newAcc._set.addAll(_set)
+        newAcc
+      }
+
+      override def reset(): Unit = _set.clear()
+
+      override def add(v: T): Unit = _set.add(v)
+
+      override def merge(other: AccumulatorV2[T, java.util.Set[T]]): Unit = {
+        _set.addAll(other.value)
+      }
+
+      override def value: java.util.Set[T] = _set
+    }
+
+    /**
+     * A collection of metrics for each column of output.
+     */
+    case class ColumnMetrics() {
+      val elementTypes = new SetAccumulator[String]
+      sparkContext.register(elementTypes)
+    }
   }
 }

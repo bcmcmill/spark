@@ -22,55 +22,55 @@ import org.apache.spark.sql.execution.vectorized.Dictionary;
 import java.math.BigInteger;
 
 public final class ParquetDictionary implements Dictionary {
-  private org.apache.parquet.column.Dictionary dictionary;
-  private boolean needTransform = false;
+    private org.apache.parquet.column.Dictionary dictionary;
+    private boolean needTransform = false;
 
-  public ParquetDictionary(org.apache.parquet.column.Dictionary dictionary, boolean needTransform) {
-    this.dictionary = dictionary;
-    this.needTransform = needTransform;
-  }
-
-  @Override
-  public int decodeToInt(int id) {
-    if (needTransform) {
-      return (int) dictionary.decodeToLong(id);
-    } else {
-      return dictionary.decodeToInt(id);
+    public ParquetDictionary(org.apache.parquet.column.Dictionary dictionary, boolean needTransform) {
+        this.dictionary = dictionary;
+        this.needTransform = needTransform;
     }
-  }
 
-  @Override
-  public long decodeToLong(int id) {
-    if (needTransform) {
-      // For unsigned int32, it stores as dictionary encoded signed int32 in Parquet
-      // whenever dictionary is available.
-      // Here we lazily decode it to the original signed int value then convert to long(unit32).
-      return Integer.toUnsignedLong(dictionary.decodeToInt(id));
-    } else {
-      return dictionary.decodeToLong(id);
+    @Override
+    public int decodeToInt(int id) {
+        if (needTransform) {
+            return (int) dictionary.decodeToLong(id);
+        } else {
+            return dictionary.decodeToInt(id);
+        }
     }
-  }
 
-  @Override
-  public float decodeToFloat(int id) {
-    return dictionary.decodeToFloat(id);
-  }
-
-  @Override
-  public double decodeToDouble(int id) {
-    return dictionary.decodeToDouble(id);
-  }
-
-  @Override
-  public byte[] decodeToBinary(int id) {
-    if (needTransform) {
-      // For unsigned int64, it stores as dictionary encoded signed int64 in Parquet
-      // whenever dictionary is available.
-      // Here we lazily decode it to the original signed long value then convert to decimal(20, 0).
-      long signed = dictionary.decodeToLong(id);
-      return new BigInteger(Long.toUnsignedString(signed)).toByteArray();
-    } else {
-      return dictionary.decodeToBinary(id).getBytes();
+    @Override
+    public long decodeToLong(int id) {
+        if (needTransform) {
+            // For unsigned int32, it stores as dictionary encoded signed int32 in Parquet
+            // whenever dictionary is available.
+            // Here we lazily decode it to the original signed int value then convert to long(unit32).
+            return Integer.toUnsignedLong(dictionary.decodeToInt(id));
+        } else {
+            return dictionary.decodeToLong(id);
+        }
     }
-  }
+
+    @Override
+    public float decodeToFloat(int id) {
+        return dictionary.decodeToFloat(id);
+    }
+
+    @Override
+    public double decodeToDouble(int id) {
+        return dictionary.decodeToDouble(id);
+    }
+
+    @Override
+    public byte[] decodeToBinary(int id) {
+        if (needTransform) {
+            // For unsigned int64, it stores as dictionary encoded signed int64 in Parquet
+            // whenever dictionary is available.
+            // Here we lazily decode it to the original signed long value then convert to decimal(20, 0).
+            long signed = dictionary.decodeToLong(id);
+            return new BigInteger(Long.toUnsignedString(signed)).toByteArray();
+        } else {
+            return dictionary.decodeToBinary(id).getBytes();
+        }
+    }
 }

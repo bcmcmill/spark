@@ -37,6 +37,7 @@ import org.apache.spark.storage.StorageLevel
 @Since("3.1.0")
 trait CachedBatch {
   def numRows: Int
+
   def sizeInBytes: Long
 }
 
@@ -52,6 +53,7 @@ trait CachedBatchSerializer extends Serializable {
    * cannot. Columnar input is only supported if the plan could produce columnar output. Currently
    * this is mostly supported by input formats like parquet and orc, but more operations are likely
    * to be supported soon.
+   *
    * @param schema the schema of the data being stored.
    * @return True if columnar input can be supported, else false.
    */
@@ -59,33 +61,35 @@ trait CachedBatchSerializer extends Serializable {
 
   /**
    * Convert an `RDD[InternalRow]` into an `RDD[CachedBatch]` in preparation for caching the data.
-   * @param input the input `RDD` to be converted.
-   * @param schema the schema of the data being stored.
+   *
+   * @param input        the input `RDD` to be converted.
+   * @param schema       the schema of the data being stored.
    * @param storageLevel where the data will be stored.
-   * @param conf the config for the query.
+   * @param conf         the config for the query.
    * @return The data converted into a format more suitable for caching.
    */
   def convertInternalRowToCachedBatch(
-      input: RDD[InternalRow],
-      schema: Seq[Attribute],
-      storageLevel: StorageLevel,
-      conf: SQLConf): RDD[CachedBatch]
+                                       input: RDD[InternalRow],
+                                       schema: Seq[Attribute],
+                                       storageLevel: StorageLevel,
+                                       conf: SQLConf): RDD[CachedBatch]
 
   /**
    * Convert an `RDD[ColumnarBatch]` into an `RDD[CachedBatch]` in preparation for caching the data.
    * This will only be called if `supportsColumnarInput()` returned true for the given schema and
    * the plan up to this point would could produce columnar output without modifying it.
-   * @param input the input `RDD` to be converted.
-   * @param schema the schema of the data being stored.
+   *
+   * @param input        the input `RDD` to be converted.
+   * @param schema       the schema of the data being stored.
    * @param storageLevel where the data will be stored.
-   * @param conf the config for the query.
+   * @param conf         the config for the query.
    * @return The data converted into a format more suitable for caching.
    */
   def convertColumnarBatchToCachedBatch(
-      input: RDD[ColumnarBatch],
-      schema: Seq[Attribute],
-      storageLevel: StorageLevel,
-      conf: SQLConf): RDD[CachedBatch]
+                                         input: RDD[ColumnarBatch],
+                                         schema: Seq[Attribute],
+                                         storageLevel: StorageLevel,
+                                         conf: SQLConf): RDD[CachedBatch]
 
   /**
    * Builds a function that can be used to filter batches prior to being decompressed.
@@ -94,15 +98,16 @@ trait CachedBatchSerializer extends Serializable {
    * provides the APIs to hold those metrics and explains the metrics used, really just min and max.
    * Note that this is intended to skip batches that are not needed, and the actual filtering of
    * individual rows is handled later.
-   * @param predicates the set of expressions to use for filtering.
+   *
+   * @param predicates       the set of expressions to use for filtering.
    * @param cachedAttributes the schema/attributes of the data that is cached. This can be helpful
    *                         if you don't store it with the data.
    * @return a function that takes the partition id and the iterator of batches in the partition.
    *         It returns an iterator of batches that should be decompressed.
    */
   def buildFilter(
-      predicates: Seq[Expression],
-      cachedAttributes: Seq[Attribute]): (Int, Iterator[CachedBatch]) => Iterator[CachedBatch]
+                   predicates: Seq[Expression],
+                   cachedAttributes: Seq[Attribute]): (Int, Iterator[CachedBatch]) => Iterator[CachedBatch]
 
   /**
    * Can `convertCachedBatchToColumnarBatch()` be called instead of
@@ -110,6 +115,7 @@ trait CachedBatchSerializer extends Serializable {
    * cannot. Columnar output is typically preferred because it is more efficient. Note that
    * `convertCachedBatchToInternalRow()` must always be supported as there are other checks that
    * can force row based output.
+   *
    * @param schema the schema of the data being checked.
    * @return true if columnar output should be used for this schema, else false.
    */
@@ -118,8 +124,9 @@ trait CachedBatchSerializer extends Serializable {
   /**
    * The exact java types of the columns that are output in columnar processing mode. This
    * is a performance optimization for code generation and is optional.
+   *
    * @param attributes the attributes to be output.
-   * @param conf the config for the query that will read the data.
+   * @param conf       the config for the query that will read the data.
    */
   def vectorTypes(attributes: Seq[Attribute], conf: SQLConf): Option[Seq[String]] = None
 
@@ -129,34 +136,36 @@ trait CachedBatchSerializer extends Serializable {
    * that can force row based output. One of the main advantages of doing columnar output over row
    * based output is that the code generation is more standard and can be combined with code
    * generation for downstream operations.
-   * @param input the cached batches that should be converted.
-   * @param cacheAttributes the attributes of the data in the batch.
+   *
+   * @param input              the cached batches that should be converted.
+   * @param cacheAttributes    the attributes of the data in the batch.
    * @param selectedAttributes the fields that should be loaded from the data and the order they
    *                           should appear in the output batch.
-   * @param conf the configuration for the job.
+   * @param conf               the configuration for the job.
    * @return an RDD of the input cached batches transformed into the ColumnarBatch format.
    */
   def convertCachedBatchToColumnarBatch(
-      input: RDD[CachedBatch],
-      cacheAttributes: Seq[Attribute],
-      selectedAttributes: Seq[Attribute],
-      conf: SQLConf): RDD[ColumnarBatch]
+                                         input: RDD[CachedBatch],
+                                         cacheAttributes: Seq[Attribute],
+                                         selectedAttributes: Seq[Attribute],
+                                         conf: SQLConf): RDD[ColumnarBatch]
 
   /**
    * Convert the cached batch into `InternalRow`s. If you want this to be performant, code
    * generation is advised.
-   * @param input the cached batches that should be converted.
-   * @param cacheAttributes the attributes of the data in the batch.
+   *
+   * @param input              the cached batches that should be converted.
+   * @param cacheAttributes    the attributes of the data in the batch.
    * @param selectedAttributes the field that should be loaded from the data and the order they
    *                           should appear in the output rows.
-   * @param conf the configuration for the job.
+   * @param conf               the configuration for the job.
    * @return RDD of the rows that were stored in the cached batches.
    */
   def convertCachedBatchToInternalRow(
-      input: RDD[CachedBatch],
-      cacheAttributes: Seq[Attribute],
-      selectedAttributes: Seq[Attribute],
-      conf: SQLConf): RDD[InternalRow]
+                                       input: RDD[CachedBatch],
+                                       cacheAttributes: Seq[Attribute],
+                                       selectedAttributes: Seq[Attribute],
+                                       conf: SQLConf): RDD[InternalRow]
 }
 
 /**
@@ -173,15 +182,16 @@ trait SimpleMetricsCachedBatch extends CachedBatch {
    * of the same type as the original column. If they are null, then it is assumed that they
    * are not provided, and will not be used for filtering.
    * <ul>
-   *   <li>`upperBound` (optional)</li>
-   *   <li>`lowerBound` (Optional)</li>
-   *   <li>`nullCount`: `Int`</li>
-   *   <li>`rowCount`: `Int`</li>
-   *   <li>`sizeInBytes`: `Long`</li>
+   * <li>`upperBound` (optional)</li>
+   * <li>`lowerBound` (Optional)</li>
+   * <li>`nullCount`: `Int`</li>
+   * <li>`rowCount`: `Int`</li>
+   * <li>`sizeInBytes`: `Long`</li>
    * </ul>
    * These are repeated for each column in the original cached data.
    */
   val stats: InternalRow
+
   override def sizeInBytes: Long =
     Range.apply(4, stats.numFields, 5).map(stats.getLong).sum
 }
@@ -213,8 +223,8 @@ private object ExtractableLiteral {
 @Since("3.1.0")
 abstract class SimpleMetricsCachedBatchSerializer extends CachedBatchSerializer with Logging {
   override def buildFilter(
-      predicates: Seq[Expression],
-      cachedAttributes: Seq[Attribute]): (Int, Iterator[CachedBatch]) => Iterator[CachedBatch] = {
+                            predicates: Seq[Expression],
+                            cachedAttributes: Seq[Attribute]): (Int, Iterator[CachedBatch]) => Iterator[CachedBatch] = {
     val stats = new PartitionStatistics(cachedAttributes)
     val statsSchema = stats.schema
 
@@ -265,7 +275,7 @@ abstract class SimpleMetricsCachedBatchSerializer extends CachedBatchSerializer 
       case In(a: AttributeReference, list: Seq[Expression])
         if list.forall(ExtractableLiteral.unapply(_).isDefined) && list.nonEmpty =>
         list.map(l => statsFor(a).lowerBound <= l.asInstanceOf[Literal] &&
-            l.asInstanceOf[Literal] <= statsFor(a).upperBound).reduce(_ || _)
+          l.asInstanceOf[Literal] <= statsFor(a).upperBound).reduce(_ || _)
       // This is an example to explain how it works, imagine that the id column stored as follows:
       // __________________________________________
       // | Partition ID | lowerBound | upperBound |
@@ -292,7 +302,7 @@ abstract class SimpleMetricsCachedBatchSerializer extends CachedBatchSerializer 
       // We can see that we only need to read p1 and p3.
       case StartsWith(a: AttributeReference, ExtractableLiteral(l)) =>
         statsFor(a).lowerBound.substr(0, Length(l)) <= l &&
-            l <= statsFor(a).upperBound.substr(0, Length(l))
+          l <= statsFor(a).upperBound.substr(0, Length(l))
     }
 
     // When we bind the filters we need to do it against the stats schema
@@ -338,6 +348,7 @@ abstract class SimpleMetricsCachedBatchSerializer extends CachedBatchSerializer 
         }
       }
     }
+
     ret
   }
 }

@@ -86,9 +86,9 @@ object ArrowWriter {
 
 class ArrowWriter(val root: VectorSchemaRoot, fields: Array[ArrowFieldWriter]) {
 
-  def schema: StructType = ArrowUtils.fromArrowSchema(root.getSchema())
-
   private var count: Int = 0
+
+  def schema: StructType = ArrowUtils.fromArrowSchema(root.getSchema())
 
   def write(row: InternalRow): Unit = {
     var i = 0
@@ -113,16 +113,19 @@ class ArrowWriter(val root: VectorSchemaRoot, fields: Array[ArrowFieldWriter]) {
 
 private[arrow] abstract class ArrowFieldWriter {
 
+  private[arrow] var count: Int = 0
+
   def valueVector: ValueVector
 
   def name: String = valueVector.getField().getName()
+
   def dataType: DataType = ArrowUtils.fromArrowField(valueVector.getField())
+
   def nullable: Boolean = valueVector.getField().isNullable()
 
   def setNull(): Unit
-  def setValue(input: SpecializedGetters, ordinal: Int): Unit
 
-  private[arrow] var count: Int = 0
+  def setValue(input: SpecializedGetters, ordinal: Int): Unit
 
   def write(input: SpecializedGetters, ordinal: Int): Unit = {
     if (input.isNullAt(ordinal)) {
@@ -221,13 +224,9 @@ private[arrow] class DoubleWriter(val valueVector: Float8Vector) extends ArrowFi
 }
 
 private[arrow] class DecimalWriter(
-    val valueVector: DecimalVector,
-    precision: Int,
-    scale: Int) extends ArrowFieldWriter {
-
-  override def setNull(): Unit = {
-    valueVector.setNull(count)
-  }
+                                    val valueVector: DecimalVector,
+                                    precision: Int,
+                                    scale: Int) extends ArrowFieldWriter {
 
   override def setValue(input: SpecializedGetters, ordinal: Int): Unit = {
     val decimal = input.getDecimal(ordinal, precision, scale)
@@ -236,6 +235,10 @@ private[arrow] class DecimalWriter(
     } else {
       setNull()
     }
+  }
+
+  override def setNull(): Unit = {
+    valueVector.setNull(count)
   }
 }
 
@@ -254,7 +257,7 @@ private[arrow] class StringWriter(val valueVector: VarCharVector) extends ArrowF
 }
 
 private[arrow] class BinaryWriter(
-    val valueVector: VarBinaryVector) extends ArrowFieldWriter {
+                                   val valueVector: VarBinaryVector) extends ArrowFieldWriter {
 
   override def setNull(): Unit = {
     valueVector.setNull(count)
@@ -278,7 +281,7 @@ private[arrow] class DateWriter(val valueVector: DateDayVector) extends ArrowFie
 }
 
 private[arrow] class TimestampWriter(
-    val valueVector: TimeStampMicroTZVector) extends ArrowFieldWriter {
+                                      val valueVector: TimeStampMicroTZVector) extends ArrowFieldWriter {
 
   override def setNull(): Unit = {
     valueVector.setNull(count)
@@ -290,7 +293,7 @@ private[arrow] class TimestampWriter(
 }
 
 private[arrow] class TimestampNTZWriter(
-    val valueVector: TimeStampMicroVector) extends ArrowFieldWriter {
+                                         val valueVector: TimeStampMicroVector) extends ArrowFieldWriter {
 
   override def setNull(): Unit = {
     valueVector.setNull(count)
@@ -302,8 +305,8 @@ private[arrow] class TimestampNTZWriter(
 }
 
 private[arrow] class ArrayWriter(
-    val valueVector: ListVector,
-    val elementWriter: ArrowFieldWriter) extends ArrowFieldWriter {
+                                  val valueVector: ListVector,
+                                  val elementWriter: ArrowFieldWriter) extends ArrowFieldWriter {
 
   override def setNull(): Unit = {
   }
@@ -331,8 +334,8 @@ private[arrow] class ArrayWriter(
 }
 
 private[arrow] class StructWriter(
-    val valueVector: StructVector,
-    children: Array[ArrowFieldWriter]) extends ArrowFieldWriter {
+                                   val valueVector: StructVector,
+                                   children: Array[ArrowFieldWriter]) extends ArrowFieldWriter {
 
   override def setNull(): Unit = {
     var i = 0
@@ -366,10 +369,10 @@ private[arrow] class StructWriter(
 }
 
 private[arrow] class MapWriter(
-    val valueVector: MapVector,
-    val structVector: StructVector,
-    val keyWriter: ArrowFieldWriter,
-    val valueWriter: ArrowFieldWriter) extends ArrowFieldWriter {
+                                val valueVector: MapVector,
+                                val structVector: StructVector,
+                                val keyWriter: ArrowFieldWriter,
+                                val valueWriter: ArrowFieldWriter) extends ArrowFieldWriter {
 
   override def setNull(): Unit = {}
 
@@ -379,7 +382,7 @@ private[arrow] class MapWriter(
     val keys = map.keyArray()
     val values = map.valueArray()
     var i = 0
-    while (i <  map.numElements()) {
+    while (i < map.numElements()) {
       structVector.setIndexDefined(keyWriter.count)
       keyWriter.write(keys, i)
       valueWriter.write(values, i)

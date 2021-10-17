@@ -33,18 +33,17 @@ import org.apache.spark.util.{ListenerBus, Utils}
  * The interface of query execution listener that can be used to analyze execution metrics.
  *
  * @note Implementations should guarantee thread-safety as they can be invoked by
- * multiple different threads.
+ *       multiple different threads.
  */
 trait QueryExecutionListener {
 
   /**
    * A callback function that will be called when a query executed successfully.
    *
-   * @param funcName name of the action that triggered this query.
-   * @param qe the QueryExecution object that carries detail information like logical plan,
-   *           physical plan, etc.
+   * @param funcName   name of the action that triggered this query.
+   * @param qe         the QueryExecution object that carries detail information like logical plan,
+   *                   physical plan, etc.
    * @param durationNs the execution time for this query in nanoseconds.
-   *
    * @note This can be invoked by multiple different threads.
    */
   @DeveloperApi
@@ -53,9 +52,9 @@ trait QueryExecutionListener {
   /**
    * A callback function that will be called when a query execution failed.
    *
-   * @param funcName the name of the action that triggered this query.
-   * @param qe the QueryExecution object that carries detail information like logical plan,
-   *           physical plan, etc.
+   * @param funcName  the name of the action that triggered this query.
+   * @param qe        the QueryExecution object that carries detail information like logical plan,
+   *                  physical plan, etc.
    * @param exception the exception that failed this query. If `java.lang.Error` is thrown during
    *                  execution, it will be wrapped with an `Exception` and it can be accessed by
    *                  `exception.getCause`.
@@ -87,14 +86,6 @@ class ExecutionListenerManager private[sql](session: SparkSession, loadExtension
   }
 
   /**
-   * Registers the specified [[QueryExecutionListener]].
-   */
-  @DeveloperApi
-  def register(listener: QueryExecutionListener): Unit = {
-    listenerBus.addListener(listener)
-  }
-
-  /**
    * Unregisters the specified [[QueryExecutionListener]].
    */
   @DeveloperApi
@@ -123,6 +114,14 @@ class ExecutionListenerManager private[sql](session: SparkSession, loadExtension
     listenerBus.listeners.asScala.foreach(newListenerManager.register)
     newListenerManager
   }
+
+  /**
+   * Registers the specified [[QueryExecutionListener]].
+   */
+  @DeveloperApi
+  def register(listener: QueryExecutionListener): Unit = {
+    listenerBus.addListener(listener)
+  }
 }
 
 private[sql] class ExecutionListenerBus private(sessionUUID: String)
@@ -142,8 +141,8 @@ private[sql] class ExecutionListenerBus private(sessionUUID: String)
   }
 
   override protected def doPostEvent(
-      listener: QueryExecutionListener,
-      event: SparkListenerSQLExecutionEnd): Unit = {
+                                      listener: QueryExecutionListener,
+                                      event: SparkListenerSQLExecutionEnd): Unit = {
     if (shouldReport(event)) {
       val funcName = event.executionName.get
       event.executionFailure match {
